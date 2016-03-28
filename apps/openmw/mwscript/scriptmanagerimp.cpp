@@ -14,6 +14,10 @@
 #include <components/compiler/context.hpp>
 #include <components/compiler/exception.hpp>
 #include <components/compiler/quickfileparser.hpp>
+#include <components/compiler/output.hpp>
+#include <components/compiler/newcompiler.hpp>
+
+#include <components/compiler/nullerrorhandler.hpp>
 
 #include "../mwworld/esmstore.hpp"
 
@@ -23,10 +27,10 @@ namespace MWScript
 {
     ScriptManager::ScriptManager (const MWWorld::ESMStore& store, bool verbose,
         Compiler::Context& compilerContext, int warningsMode,
-        const std::vector<std::string>& scriptBlacklist)
+        const std::vector<std::string>& scriptBlacklist, bool newcompiler)
     : mErrorHandler (std::cerr), mStore (store), mVerbose (verbose),
       mCompilerContext (compilerContext), mParser (mErrorHandler, mCompilerContext),
-      mOpcodesInstalled (false), mGlobalScripts (store)
+      mOpcodesInstalled (false), mGlobalScripts (store), mNewCompiler(newcompiler)
     {
         mErrorHandler.setWarningsMode (warningsMode);
 
@@ -39,53 +43,92 @@ namespace MWScript
 
     bool ScriptManager::compile (const std::string& name)
     {
-        mParser.reset();
         mErrorHandler.reset();
+        Compiler::NullErrorHandler noError;
 
-        if (const ESM::Script *script = mStore.get<ESM::Script>().find (name))
-        {
-            if (mVerbose)
-                std::cout << "compiling script: " << name << std::endl;
+        Compiler::ErrorHandler & errorhandler = noError;
 
-            bool Success = true;
-            try
-            {
-                std::istringstream input (script->mScriptText);
+        if (!mNewCompiler) {
+            mParser.reset();
 
-                Compiler::Scanner scanner (mErrorHandler, input, mCompilerContext.getExtensions());
 
-                scanner.scan (mParser);
+            if (const ESM::Script *script = mStore.get<ESM::Script>().find (name))
+                {
+                    if (mVerbose)
+                        std::cout << "compiling script: " << name << std::endl;
 
-                if (!mErrorHandler.isGood())
-                    Success = false;
-            }
-            catch (const Compiler::SourceException&)
-            {
-                // error has already been reported via error handler
-                Success = false;
-            }
-            catch (const std::exception& error)
-            {
-                std::cerr << "An exception has been thrown: " << error.what() << std::endl;
-                Success = false;
-            }
+                    bool Success = true;
+                    try
+                        {
+                            std::istringstream input (script->mScriptText);
 
-            if (!Success)
-            {
-                std::cerr
-                    << "compiling failed: " << name << std::endl;
-                if (mVerbose)
-                    std::cerr << script->mScriptText << std::endl << std::endl;
-            }
+                            Compiler::Scanner scanner (errorhandler, input, mCompilerContext.getExtensions());
 
-            if (Success)
-            {
-                std::vector<Interpreter::Type_Code> code;
-                mParser.getCode (code);
-                mScripts.insert (std::make_pair (name, std::make_pair (code, mParser.getLocals())));
+                            scanner.scan (mParser);
 
-                return true;
-            }
+                            if (!errorhandler.isGood())
+                                Success = false;
+                        }
+                    catch (const Compiler::SourceException&)
+                        {
+                            // error has already been reported via error handler
+                            Success = false;
+                        }
+                    catch (const std::exception& error)
+                        {
+                            std::cerr << "An exception has been thrown: " << error.what() << std::endl;
+                            Success = false;
+                        }
+
+                    if (!Success)
+                        {
+                            std::cerr
+                                << "compiling failed: " << name << std::endl;
+                            if (mVerbose)
+                                std::cerr << script->mScriptText << std::endl << std::endl;
+                        }
+
+                    if (Success)
+                        {
+                            std::vector<Interpreter::Type_Code> code;
+                            mParser.getCode (code);
+                            mScripts.insert (std::make_pair (name, std::make_pair (code, mParser.getLocals())));
+
+                            return true;
+                        }
+                }
+
+        } else {
+
+            if (const ESM::Script *script = mStore.get<ESM::Script>().find (name))
+                {
+                    if (mVerbose)
+                        std::cout << "compiling script: " << name << std::endl;
+
+#if 0
+                    try
+                        {
+#endif
+                            std::istringstream input (script->mScriptText);
+                            Compiler::NewCompiler compiler(errorhandler, mCompilerContext);
+                            Compiler::Locals locals;
+                            Compiler::Output output(locals);
+                            if (compiler.compile_stream(input, name, output)) {
+                                std::vector<Interpreter::Type_Code> code;
+                                output.getCode(code);
+                                mScripts.insert (std::make_pair (name, std::make_pair (code, output.getLocals())));
+                                return true;
+                            } else {
+                                std::cout << "Failed on " << name << std::endl;
+                                return false;
+                            }
+#if 0
+                        } catch (...) {
+                        std::cout << "Horrific error" << std::endl;
+                        return false;
+                    }
+#endif
+                }
         }
 
         return false;

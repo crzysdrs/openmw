@@ -49,12 +49,12 @@ namespace MWScript
             GlobalScripts mGlobalScripts;
             std::map<std::string, Compiler::Locals> mOtherLocals;
             std::vector<std::string> mScriptBlacklist;
-
+            bool mNewCompiler;
         public:
 
             ScriptManager (const MWWorld::ESMStore& store, bool verbose,
                 Compiler::Context& compilerContext, int warningsMode,
-                const std::vector<std::string>& scriptBlacklist);
+                const std::vector<std::string>& scriptBlacklist, bool newCompiler);
 
             virtual void run (const std::string& name, Interpreter::Context& interpreterContext);
             ///< Run the script with the given name (compile first, if not compiled yet)

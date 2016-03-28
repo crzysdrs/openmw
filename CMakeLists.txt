@@ -211,7 +211,7 @@ if(NOT HAVE_STDINT_H)
 endif()
 
 
-set(BOOST_COMPONENTS system filesystem program_options thread)
+set(BOOST_COMPONENTS system filesystem program_options thread regex)
 if(WIN32)
     set(BOOST_COMPONENTS ${BOOST_COMPONENTS} locale)
 endif(WIN32)
@@ -512,6 +512,7 @@ if (USE_QT)
 endif()
 
 # Components
+#Doing the bison lookup here so debug line info is consistent.
 add_subdirectory (components)
 
 # Plugins

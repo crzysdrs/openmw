@@ -5,6 +5,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 
+#include <components/compiler/newcompiler.hpp>
 #include <components/compiler/exception.hpp>
 #include <components/compiler/extensions0.hpp>
 
@@ -46,7 +47,7 @@ namespace MWGui
         try
         {
             ErrorHandler::reset();
-
+#if 0
             std::istringstream input (cmd + '\n');
 
             Compiler::Scanner scanner (*this, input, mCompilerContext.getExtensions());
@@ -55,7 +56,11 @@ namespace MWGui
                 output.getLiterals(), output.getCode(), true);
 
             scanner.scan (parser);
-
+#else
+            Compiler::NewCompiler newcompiler(*this, mCompilerContext);
+            std::istringstream input ("begin consoleinput\n" + cmd + "\n end consoleinput");
+            newcompiler.compile_stream(input, "consoleinput", output);
+#endif
             return isGood();
         }
         catch (const Compiler::SourceException&)
@@ -232,7 +237,7 @@ namespace MWGui
                   MyGUI::Char _char)
     {
         if( key == MyGUI::KeyCode::Tab)
-        {
+            {
             std::vector<std::string> matches;
             listNames();
             std::string oldCaption = mCommandLine->getCaption();
@@ -296,7 +301,7 @@ namespace MWGui
         mEditString.clear();
 
         // Reset the command line before the command execution.
-        // It prevents the re-triggering of the acceptCommand() event for the same command 
+        // It prevents the re-triggering of the acceptCommand() event for the same command
         // during the actual command execution
         mCommandLine->setCaption("");
 

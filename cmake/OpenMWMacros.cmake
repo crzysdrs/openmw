@@ -42,7 +42,35 @@ macro (add_openmw_dir dir)
     endif()
 
     source_group ("apps\\openmw\\${dir}" FILES ${files})
-endmacro (add_openmw_dir)
+  endmacro (add_openmw_dir)
+
+macro (add_test_dir dir)
+    set (files)
+    set (cppfiles)
+    foreach (u ${ARGN})
+
+        # Add cpp and hpp to OPENMW_FILES
+        file (GLOB ALL "${dir}/${u}.[ch]pp")
+        foreach (f ${ALL})
+            list (APPEND files "${f}")
+            list (APPEND TEST_FILES "${f}")
+        endforeach (f)
+
+        # Add cpp to unity build
+        file (GLOB ALL "${dir}/${u}.cpp")
+        foreach (f ${ALL})
+            list (APPEND cppfiles "${f}")
+        endforeach (f)
+
+    endforeach (u)
+
+    if (OPENMW_UNITY_BUILD)
+        enable_unity_build(${dir} "${cppfiles}")
+        list (APPEND TEST_FILES ${CMAKE_CURRENT_BINARY_DIR}/ub_${dir}.cpp)
+    endif()
+
+    source_group ("apps\\openmw\\${dir}" FILES ${files})
+endmacro (add_test_dir)
 
 macro (add_component_dir dir)
     set (files)

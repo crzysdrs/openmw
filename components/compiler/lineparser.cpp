@@ -522,7 +522,7 @@ namespace Compiler
 
         if (code==Scanner::S_newline && mState==MessageButtonState)
         {
-            Generator::message (mCode, mLiterals, mName, mButtons);
+            Generator::message (mCode, mLiterals, mName, mButtons, true);
             return false;
         }
 

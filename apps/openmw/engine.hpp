@@ -83,6 +83,7 @@ namespace OMW
             bool mUseSound;
             bool mCompileAll;
             bool mCompileAllDialogue;
+            bool mNewCompiler;
             int mWarningsMode;
             std::string mFocusName;
             std::map<std::string,std::string> mFallbackMap;
@@ -172,6 +173,7 @@ namespace OMW
             /// Compile all scripts (excludign dialogue scripts) at startup?
             void setCompileAll (bool all);
 
+            void setNewCompiler (bool newcompiler);
             /// Compile all dialogue scripts at startup?
             void setCompileAllDialogue (bool all);
 

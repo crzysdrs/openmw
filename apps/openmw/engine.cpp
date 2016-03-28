@@ -2,6 +2,9 @@
 
 #include <stdexcept>
 #include <iomanip>
+#include <ctime>
+#include <cstdio>
+#include <iostream>
 
 #include <boost/filesystem/fstream.hpp>
 
@@ -23,6 +26,7 @@
 #include <components/resource/scenemanager.hpp>
 
 #include <components/compiler/extensions0.hpp>
+#include <components/compiler/opcodes.hpp>
 
 #include <components/files/configurationmanager.hpp>
 #include <components/translation/translation.hpp>
@@ -70,6 +74,7 @@ void OMW::Engine::executeLocalScripts()
 
     localScripts.startIteration();
     std::pair<std::string, MWWorld::Ptr> script;
+
     while (localScripts.getNext(script))
     {
         MWScript::InterpreterContext interpreterContext (
@@ -188,6 +193,10 @@ void OMW::Engine::frame(float frametime)
     }
 }
 
+void OMW::Engine::setNewCompiler(bool newcompiler) {
+    mNewCompiler = newcompiler;
+}
+
 OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   : mWindow(NULL)
   , mEncoding(ToUTF8::WINDOWS_1252)
@@ -197,7 +206,8 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mUseSound (true)
   , mCompileAll (false)
   , mCompileAllDialogue (false)
-  , mWarningsMode (1)
+  , mNewCompiler (false)
+  , mWarningsMode (0)
   , mScriptConsoleMode (false)
   , mActivationDistanceOverride(-1)
   , mGrab(true)
@@ -526,7 +536,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     mEnvironment.setScriptManager (new MWScript::ScriptManager (mEnvironment.getWorld()->getStore(),
         mVerboseScripts, *mScriptContext, mWarningsMode,
-        mScriptBlacklistUse ? mScriptBlacklist : std::vector<std::string>()));
+            mScriptBlacklistUse ? mScriptBlacklist : std::vector<std::string>(), mNewCompiler));
 
     // Create game mechanics system
     MWMechanics::MechanicsManager* mechanics = new MWMechanics::MechanicsManager;
@@ -535,6 +545,29 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Create dialog system
     mEnvironment.setJournal (new MWDialogue::Journal);
     mEnvironment.setDialogueManager (new MWDialogue::DialogueManager (mExtensions, mVerboseScripts, mTranslationDataStorage));
+
+    int op1 = Compiler::Ai::opcodeGetAiPackageDone;
+    int op2 = -1;
+    int opexplicit = 33554432;
+    Compiler::Extensions & e = mExtensions;
+    e.registerFunction("getsquareroot", 'f', "f", op1, op2);
+    e.registerFunction("menumode", 's', "", op1, op2);
+    e.registerFunction("random", 's', "s", op1, op2);
+    e.registerInstruction("startscript", "c", op1, op2);
+    e.registerInstruction("stopscript", "c", op1, op2);
+    e.registerFunction("scriptrunning", 's', "c", op1, op2);
+    e.registerFunction("getdistance", 'f', "c", op1, opexplicit);
+    e.registerFunction("getsecondspassed", 'f', "", op1, op2);
+
+    e.registerInstruction("messagebox", "S/SSSSSSSSSSSSSSSSSSSSSSSSSSS", 0x20000, op2);
+    e.registerInstruction("disable", "", op1, opexplicit);
+    e.registerInstruction("enable", "", op1, opexplicit);
+    e.registerFunction("getdisabled", 's', "", op1, opexplicit);
+
+    std::clock_t start;
+    double duration;
+
+    start = std::clock();
 
     // scripts
     if (mCompileAll)
@@ -549,7 +582,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     }
     if (mCompileAllDialogue)
     {
-        std::pair<int, int> result = MWDialogue::ScriptTest::compileAll(&mExtensions, mWarningsMode);
+        std::pair<int, int> result = MWDialogue::ScriptTest::compileAll(&mExtensions, mWarningsMode, mNewCompiler);
         if (result.first)
             std::cout
                 << "compiled " << result.second << " of " << result.first << " dialogue script/actor combinations a("
@@ -557,6 +590,11 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
                 << "%)"
                 << std::endl;
     }
+    duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+
+    std::cout << "Compile Time: " << duration << std::endl;
+
+    exit(0);
 }
 
 class WriteScreenshotToFileOperation : public osgViewer::ScreenCaptureHandler::CaptureOperation

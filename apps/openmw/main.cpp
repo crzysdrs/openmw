@@ -101,6 +101,9 @@ bool parseOptions (int argc, char** argv, OMW::Engine& engine, Files::Configurat
         ("script-verbose", bpo::value<bool>()->implicit_value(true)
             ->default_value(false), "verbose script output")
 
+        ("new-compiler", bpo::value<bool>()->implicit_value(true)
+            ->default_value(false), "switch to a newer compiler")
+
         ("script-all", bpo::value<bool>()->implicit_value(true)
             ->default_value(false), "compile all scripts (excluding dialogue scripts) at startup")
 
@@ -236,6 +239,7 @@ bool parseOptions (int argc, char** argv, OMW::Engine& engine, Files::Configurat
         std::cerr << "new-game used without skip-menu -> ignoring it" << std::endl;
 
     // scripts
+    engine.setNewCompiler(variables["new-compiler"].as<bool>());
     engine.setCompileAll(variables["script-all"].as<bool>());
     engine.setCompileAllDialogue(variables["script-all-dialogue"].as<bool>());
     engine.setScriptsVerbosity(variables["script-verbose"].as<bool>());

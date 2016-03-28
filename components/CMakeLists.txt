@@ -98,11 +98,18 @@ add_component_dir (files
     )
 
 add_component_dir (compiler
+    ast driver astvisitor typecheck codegen newcompiler
     context controlparser errorhandler exception exprparser extensions fileparser generator
     lineparser literals locals output parser scanner scriptparser skipparser streamerrorhandler
     stringparser tokenloc nullerrorhandler opcodes extensions0 declarationparser
-    quickfileparser discardparser junkparser
+    quickfileparser discardparser junkparser ast
     )
+find_package(BISON)
+find_package(FLEX)
+BISON_TARGET(MyParser ../components/compiler/parser.yy ${CMAKE_CURRENT_BINARY_DIR}/newparser.cpp COMPILE_FLAGS "-v -Werror")
+FLEX_TARGET(MyScanner ../components/compiler/scanner.ll ${CMAKE_CURRENT_BINARY_DIR}/lexer.cpp)
+ADD_FLEX_BISON_DEPENDENCY(MyScanner MyParser)
+list (APPEND COMPONENT_FILES  ${BISON_MyParser_OUTPUTS} ${FLEX_MyScanner_OUTPUTS} )
 
 add_component_dir (interpreter
     context controlopcodes genericopcodes installopcodes interpreter localopcodes mathopcodes
@@ -195,6 +202,7 @@ target_link_libraries(components
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${OSG_LIBRARIES}
     ${OPENTHREADS_LIBRARIES}

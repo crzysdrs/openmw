@@ -377,25 +377,7 @@ namespace Compiler
             opPushInt (code, index);
         }
 
-        void assignToLocal (CodeContainer& code, char localType,
-            int localIndex, const CodeContainer& value, char valueType)
-        {
-            opPushInt (code, localIndex);
-
-            std::copy (value.begin(), value.end(), std::back_inserter (code));
-
-            if (localType!=valueType)
-            {
-                if (localType=='f' && valueType=='l')
-                {
-                    opIntToFloat (code);
-                }
-                else if ((localType=='l' || localType=='s') && valueType=='f')
-                {
-                    opFloatToInt (code);
-                }
-            }
-
+        void storeLocal (CodeContainer & code, char localType) {
             switch (localType)
             {
                 case 'f':
@@ -417,6 +399,27 @@ namespace Compiler
 
                     assert (0);
             }
+
+        }
+        void assignToLocal (CodeContainer& code, char localType,
+            int localIndex, const CodeContainer& value, char valueType)
+        {
+            opPushInt (code, localIndex);
+
+            std::copy (value.begin(), value.end(), std::back_inserter (code));
+
+            if (localType!=valueType)
+            {
+                if (localType=='f' && valueType=='l')
+                {
+                    opIntToFloat (code);
+                }
+                else if ((localType=='l' || localType=='s') && valueType=='f')
+                {
+                    opFloatToInt (code);
+                }
+            }
+            storeLocal(code, localType);
         }
 
         void negate (CodeContainer& code, char valueType)
@@ -535,16 +538,18 @@ namespace Compiler
         }
 
         void message (CodeContainer& code, Literals& literals, const std::string& message,
-            int buttons)
+            int buttons, bool hasMessage)
         {
             assert (buttons>=0);
 
             if (buttons>=256)
                 throw std::runtime_error ("A message box can't have more than 255 buttons");
 
-            int index = literals.addString (message);
+            if (hasMessage)  {
+                int index = literals.addString (message);
+                opPushInt (code, index);
+            }
 
-            opPushInt (code, index);
             opMessageBox (code, buttons);
         }
 
@@ -650,17 +655,16 @@ namespace Compiler
             opMenuMode (code);
         }
 
-        void assignToGlobal (CodeContainer& code, Literals& literals, char localType,
-            const std::string& name, const CodeContainer& value, char valueType)
+        void pushLiteral(CodeContainer & code, Literals & literals, const std::string & name)
         {
             int index = literals.addString (name);
-
             opPushInt (code, index);
+        }
 
-            std::copy (value.begin(), value.end(), std::back_inserter (code));
-
+        void storeGlobal(CodeContainer & code, char localType, char valueType)
+        {
             if (localType!=valueType)
-            {
+                {
                 if (localType=='f' && (valueType=='l' || valueType=='s'))
                 {
                     opIntToFloat (code);
@@ -693,6 +697,15 @@ namespace Compiler
                     assert (0);
             }
         }
+        void assignToGlobal (CodeContainer& code, Literals& literals, char localType,
+            const std::string& name, const CodeContainer& value, char valueType)
+        {
+            pushString(code, literals, name);
+
+            std::copy (value.begin(), value.end(), std::back_inserter (code));
+
+            storeGlobal(code, localType, valueType);
+        }
 
         void fetchGlobal (CodeContainer& code, Literals& literals, char localType,
             const std::string& name)
@@ -724,6 +737,26 @@ namespace Compiler
             }
         }
 
+        void storeMember(CodeContainer & code, char localType, bool global) {
+            switch (localType)
+            {
+                case 'f':
+                    opStoreMemberFloat (code, global);
+                    break;
+
+                case 's':
+                    opStoreMemberShort (code, global);
+                    break;
+
+                case 'l':
+                    opStoreMemberLong (code, global);
+                    break;
+
+                default:
+                    assert (0);
+            }
+        }
+
         void assignToMember (CodeContainer& code, Literals& literals, char localType,
             const std::string& name, const std::string& id, const CodeContainer& value,
             char valueType, bool global)
@@ -750,27 +783,7 @@ namespace Compiler
                 }
             }
 
-            switch (localType)
-            {
-                case 'f':
-
-                    opStoreMemberFloat (code, global);
-                    break;
-
-                case 's':
-
-                    opStoreMemberShort (code, global);
-                    break;
-
-                case 'l':
-
-                    opStoreMemberLong (code, global);
-                    break;
-
-                default:
-
-                    assert (0);
-            }
+            storeMember(code, localType, global);
         }
 
         void fetchMember (CodeContainer& code, Literals& literals, char localType,

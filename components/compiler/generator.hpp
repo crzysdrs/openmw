@@ -53,11 +53,15 @@ namespace Compiler
             return 0xc8000000 | c;
         }
 
+        void pushLiteral(CodeContainer & code, Literals & literals, const std::string & name);
+
         void pushInt (CodeContainer& code, Literals& literals, int value);
 
         void pushFloat (CodeContainer& code, Literals& literals, float value);
 
         void pushString (CodeContainer& code, Literals& literals, const std::string& value);
+
+        void storeLocal (CodeContainer & code, char localType);
 
         void assignToLocal (CodeContainer& code, char localType,
             int localIndex, const CodeContainer& value, char valueType);
@@ -79,7 +83,7 @@ namespace Compiler
         void exit (CodeContainer& code);
 
         void message (CodeContainer& code, Literals& literals, const std::string& message,
-            int buttons);
+            int buttons, bool hasMessage);
 
         void report (CodeContainer& code, Literals& literals, const std::string& message);
 
@@ -96,8 +100,12 @@ namespace Compiler
         void assignToGlobal (CodeContainer& code, Literals& literals, char localType,
             const std::string& name, const CodeContainer& value, char valueType);
 
+        void storeGlobal(CodeContainer & code, char localType, char valueType);
+
         void fetchGlobal (CodeContainer& code, Literals& literals, char localType,
             const std::string& name);
+
+        void storeMember(CodeContainer & code, char localType, bool global);
 
         void assignToMember (CodeContainer& code, Literals& literals, char memberType,
             const std::string& name, const std::string& id, const CodeContainer& value, char valueType, bool global);
