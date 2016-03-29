@@ -112,7 +112,7 @@ typedef boost::shared_ptr<AST::Statement> shared_stmt;
 %nonassoc UMINUS
 %nonassoc DOT ARROW
 %left HIGH
-%nonassoc error
+%left error
 %nonassoc IDENT STRING_LIT
 %left ELSEIF ELSE ENDIF
 
@@ -156,8 +156,8 @@ typedef boost::shared_ptr<AST::Statement> shared_stmt;
 
  /*** BEGIN EXAMPLE - Change the example grammar rules below ***/
 
-keyword_on : %empty { driver.lexer->set_keyword_context(true); };
-keyword_off : %empty { driver.lexer->set_keyword_context(false); };
+keyword_on : %empty //{ driver.lexer->set_keyword_context(true); };
+keyword_off : %empty //{ driver.lexer->set_keyword_context(false); };
 
 statement_list : statement_list line_statement { $1->push_back(*$2); $$ = $1; }
 | %empty { $$ = new std::vector<shared_stmt>(); }
@@ -167,7 +167,8 @@ inner_statement_list : inner_statement_list inner_line_statement { $1->push_back
 | %empty { $$ = new std::vector<shared_stmt>(); }
 ;
 
-eol : EOL keyword_on
+eol : keyword_on EOL
+| keyword_on EOL eol
 ;
 
 maybe_eol : eol
@@ -175,13 +176,11 @@ maybe_eol : eol
 ;
 
 line_statement : statement eol {$$ = $1;}
-| statement
-| error eol { yyerrok; yyclearin; $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
+| error eol { printf("Maybe cleaned up error?\n"); yyerrok; $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
 ;
 
 inner_line_statement : inner_statement eol {$$ = $1;}
-| inner_statement
-| error eol { yyerrok; yyclearin; $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
+| error eol { printf("Maybe cleaned up error?\n");  yyerrok; $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
 ;
 
 
@@ -349,7 +348,9 @@ elseifs {
 
 
 else_statement : ELSE eol statement_list { $$ = $3; }
+| ELSE expr eol statement_list { $$ = $4; /* should I treat an else with a condition like an else if? */}
 ;
+
 optional_else : else_statement %prec ENDIF
 | %empty { $$ = new std::vector<shared_stmt>(); }
 ;
@@ -413,7 +414,7 @@ maybe_eol BEGIN_BLOCK keyword_off string_ident eol statement_list END_BLOCK keyw
 
 start : block
 | block error EOF_T {
-  yyerrok; yyclearin; printf("Error outside of block\n");
+  yyerrok; printf("Error outside of block\n");
 }
 
  /*** END EXAMPLE - Change the example grammar rules above ***/

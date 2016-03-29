@@ -49,6 +49,10 @@ typedef Compiler::NewParser::token_type token_type;
 
 %}
 
+%s LEGACY
+%s KEYWORDS
+%x COMMENT
+
 %% /*** Regular Expressions Part ***/
 
  /* code to place at the beginning of yylex() */
@@ -59,23 +63,48 @@ typedef Compiler::NewParser::token_type token_type;
 
  /*** BEGIN EXAMPLE - Change the example lexer rules below ***/
 
- /* gobble up end-of-lines, comments, whitespace, non-alphanumeric pre-text */
-([ \r\t]*(;[^\n]*)?\n[^-a-zA-Z0-9"]*)+ {
-    bool eol = false;
-    for (int i = 0; i < yyleng; i++) {
-        if (yytext[i] == '\n') {
-             eol = true;
-             yylloc->lines(1);
-        }
-    }
-    if (eol) {
+<KEYWORDS>{
+    (?i:if) { BEGIN(INITIAL); return token::IF; }
+    (?i:else) { BEGIN(INITIAL); return token::ELSE; }
+    (?i:else[ \t]*if) { BEGIN(INITIAL); return token::ELSEIF; }
+    (?i:end[ \t]*if) { BEGIN(INITIAL); return token::ENDIF; }
+    (?i:while) { BEGIN(INITIAL); return token::WHILE; }
+    (?i:end[ \t]*while) {  return token::ENDWHILE; }
+    (?i:set) { BEGIN(INITIAL);  return token::SET; }
+    (?i:to) { return token::TO; }
+    (?i:return) {return token::RETURN; }
+    (?i:short) { BEGIN(INITIAL); return token::SHORT; }
+    (?i:float) { BEGIN(INITIAL);return token::FLOAT; }
+    (?i:long) { BEGIN(INITIAL); return token::LONG; }
+    (?i:begin) { BEGIN(INITIAL); return token::BEGIN_BLOCK; }
+    (?i:end) { BEGIN(INITIAL); return token::END_BLOCK; }
+}
+
+";" {
+    BEGIN(COMMENT);
+}
+
+"\n" {
+    yylloc->lines(1);
+    BEGIN(KEYWORDS);
+    //printf("KEYWORD STATE\n");
+    return token::EOL;
+}
+
+<COMMENT>{
+    "\n" {
+        yylloc->lines(1);
+        BEGIN(KEYWORDS);
+        //printf("KEYWORD STATE\n");
         return token::EOL;
-    } else {
+    }
+    [^\n]+ {
         yylloc->step();
     }
 }
-[ \r\t]*;[^\n]* {
-/* get the last comment in a file */
+
+[ \t\r]+ {
+    /* whitespace */
     yylloc->step();
 }
 
@@ -88,108 +117,38 @@ typedef Compiler::NewParser::token_type token_type;
 
 "." { return token::DOT;}
 "->" { return token::ARROW; }
- /* " */
 
 "]" { return (NewParser::token_type)')'; }
 "[" { return (NewParser::token_type)'('; }
+"-" { return (NewParser::token_type)'-'; }
 
-":" { yylloc->step(); }
-
- /*
-[0-9]+ {
-    yylval->longVal = atoi(yytext);
-    return token::LONG_LIT;
-}
-*/
-
-end[ \t]*if {
-    if (mKeywordContext) {
-        return token::ENDIF;
-    } else {
-        unputstr(yytext + 3, yyleng -3);
-        yylval->stringVal = new boost::shared_ptr<std::string>(new std::string("end"));
-        return token::IDENT;
-    }
-}
-
-else[ \t]*if {
-    if (mKeywordContext) {
-        return token::ELSEIF;
-    } else {
-        unputstr(yytext + 4, yyleng -4);
-        yylval->stringVal = new boost::shared_ptr<std::string>(new std::string("else"));
-        return token::IDENT;
-    }
-}
-
- /* note that this does not allow - at the end of idents, to allow catching of -> */
-[A-Za-z0-9][-A-Za-z0-9_]*-? {
-    char * bad = NULL;
-    for (int i = 0; i < yyleng && !bad; i++) {
-        char * c = &yytext[i];
-        switch(*c) {
-        case '-':
-            bad = c;
-            break;
-        default:
-            break;
-        }
-    }
-    if (!mLegacy && bad) {
-        if (yytext[0] >= '0' && yytext[0] <= '9') {
-            char * c = yytext;
-            while (c < bad && *c >= '0' && *c <= '9') {
-                c++;
-            }
-            if (c == bad) {
-                yylval->longVal = atoi(yytext);
-                return token::LONG_LIT;
-            }
-        }
-        int goodlen = (bad - yytext);
-        int badlen = yyleng - goodlen;
-        if (bad == yytext) {
-            unputstr(&bad[1], badlen - 1);
-            return (NewParser::token_type)'-';
-        } else if (getKeywordToken(yytext, goodlen) != token::UNDEFINED && mKeywordContext) {
-            return getKeywordToken(yytext, goodlen);
-        } else {
-            yylval->stringVal = new boost::shared_ptr<std::string>(new std::string(yytext, goodlen));
-            unputstr(&bad[1], badlen - 1);
-            return token::IDENT;
-        }
-    } else if (yytext[yyleng - 1] == '-') {
-        yylval->stringVal = new boost::shared_ptr<std::string>(new std::string(yytext, yyleng - 1));
-        unput('-');
-        return token::IDENT;
-    } else if (getKeywordToken(yytext, yyleng) != token::UNDEFINED && mKeywordContext) {
-        return getKeywordToken(yytext, yyleng);
-    } else {
-        yylval->stringVal = new boost::shared_ptr<std::string>(new std::string(yytext, yyleng));
-        return token::IDENT;
-    }
-}
-
-\"[^\n"]*\" {
-    yylval->stringVal = new boost::shared_ptr<std::string>(new std::string(yytext + 1, yyleng - 2));
-    return token::STRING_LIT;
-}
+ /* ignored characters */
+"[!@#$%^&|'?`~:^]" { yylloc->step(); }
 
 "," {
     yylloc->step();
     //return token::COMMA;
 }
- /* " */
 
- /* gobble up white-spaces */
-[ \t\r]+ {
-    yylloc->step();
+ /* these are "identifiers" that can contain "-" anywhere in middle and numbers. */
+[A-Za-z0-9_]([-A-Za-z0-9_]*[A-Za-z0-9_]|[A-Za-z0-9_])? {
+    BEGIN(INITIAL);
+    yylval->stringVal = new boost::shared_ptr<std::string>(new std::string(yytext, yyleng));
+    return token::IDENT;
 }
 
+\"[^\n"]*\" {
+    BEGIN(INITIAL);
+    yylval->stringVal = new boost::shared_ptr<std::string>(new std::string(yytext + 1, yyleng - 2));
+    return token::STRING_LIT;
+}
+
+ /* " */
  /* pass all other characters up to bison */
 . {
     return static_cast<token_type>(*yytext);
 }
+
  /*** END EXAMPLE - Change the example lexer rules above ***/
 
 %% /*** Additional Code ***/
@@ -200,6 +159,7 @@ namespace Compiler {
         std::ostream* out)
         : ExampleFlexLexer(in, out), mLegacy(true), mKeywordContext(true)
     {
+        BEGIN(KEYWORDS);
     }
 
     NewScanner::~NewScanner()
@@ -225,59 +185,17 @@ namespace Compiler {
         free(yycopy);
     }
     void NewScanner::set_keyword_context(bool keyword) {
+        if (keyword) {
+            BEGIN(KEYWORDS);
+        } else {
+            BEGIN(INITIAL);
+        }
         //printf("Keyword Mode: %i\n", keyword);
         mKeywordContext = keyword;
     }
 
-    Compiler::NewParser::token_type NewScanner::getKeywordToken(char * text, int len) {
-        char * keywords[] = {
-            "if",
-            "else",
-            "elseif",
-            "endif",
-            "while",
-            "endwhile",
-            "set",
-            "to",
-            "return",
-            "short",
-            "float",
-            "long",
-            "begin",
-            "end"
-        };
-        Compiler::NewParser::token_type tokens[] = {
-            token::IF,
-            token::ELSE,
-            token::ELSEIF,
-            token::ENDIF,
-            token::WHILE,
-            token::ENDWHILE,
-            token::SET,
-            token::TO,
-            token::RETURN,
-            token::SHORT,
-            token::FLOAT,
-            token::LONG,
-            token::BEGIN_BLOCK,
-            token::END_BLOCK
-        };
-        for (int i = 0; i < sizeof(keywords) / sizeof(char *); i++) {
-            bool mismatch = false;
-            for (int j = 0; j < len && j < strlen(keywords[i]); j++) {
-                if (tolower(keywords[i][j]) != tolower(text[j])) {
-                    mismatch = true;
-                }
-            }
-            if (!mismatch && strlen(keywords[i]) == len) {
-                return tokens[i];
-            }
-        }
-        return token::UNDEFINED;
-    }
-
-
 }
+
 /* This implementation of ExampleFlexLexer::yylex() is required to fill the
  * vtable of the class ExampleFlexLexer. We define the scanner's main yylex
  * function via YY_DECL to reside in the NewScanner class instead. */
