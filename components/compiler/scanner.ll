@@ -26,6 +26,8 @@ typedef Compiler::NewParser::token_type token_type;
 /* enable c++ scanner class generation */
 %option c++
 
+%pointer
+
 /* change the name of the scanner class. results in "ExampleFlexLexer" */
 %option prefix="Example"
 
@@ -39,8 +41,13 @@ typedef Compiler::NewParser::token_type token_type;
 /* no support for include files is planned */
 %option yywrap nounput
 
-/* enables the use of start condition stacks */
-%option stack
+%option align
+
+%option full
+
+%option warn
+
+%option 8bit
 
 /* The following paragraph suffices to track locations accurately. Each time
  * yylex is invoked, the begin position is moved onto the end position. */

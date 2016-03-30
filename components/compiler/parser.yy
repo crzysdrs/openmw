@@ -122,6 +122,7 @@ typedef boost::shared_ptr<AST::Statement> shared_stmt;
 %token <stringVal> 	STRING_LIT	"string"
 %token <stringVal> 	IDENT		"ident"
 
+
 %type <opVal> bool_oper arrow_dot
 %type <stringVal> string_ident
 %type <typeVal> type
@@ -134,7 +135,14 @@ typedef boost::shared_ptr<AST::Statement> shared_stmt;
 %type <exprList> arg_list
 %type <moduleVal> start block
 
- //%destructor { free ($$); } <*>
+/*
+%destructor { } <shortVal>
+%destructor { } <longVal>
+%destructor { } <floatVal>
+%destructor { } <typeVal>
+%destructor { } <opVal>
+%destructor { delete ($$); } <*>
+*/
 
  /*** END EXAMPLE - Change the example grammar's tokens above ***/
 
@@ -156,7 +164,6 @@ typedef boost::shared_ptr<AST::Statement> shared_stmt;
 
  /*** BEGIN EXAMPLE - Change the example grammar rules below ***/
 
-keyword_on : %empty //{ driver.lexer->set_keyword_context(true); };
 keyword_off : %empty //{ driver.lexer->set_keyword_context(false); };
 
 statement_list : statement_list line_statement { $1->push_back(*$2); $$ = $1; }
@@ -167,8 +174,8 @@ inner_statement_list : inner_statement_list inner_line_statement { $1->push_back
 | %empty { $$ = new std::vector<shared_stmt>(); }
 ;
 
-eol : keyword_on EOL
-| keyword_on EOL eol
+eol : EOL
+| eol EOL
 ;
 
 maybe_eol : eol

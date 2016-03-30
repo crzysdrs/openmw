@@ -107,7 +107,7 @@ add_component_dir (compiler
 find_package(BISON)
 find_package(FLEX)
 BISON_TARGET(MyParser ../components/compiler/parser.yy ${CMAKE_CURRENT_BINARY_DIR}/newparser.cpp COMPILE_FLAGS "-v -Werror")
-FLEX_TARGET(MyScanner ../components/compiler/scanner.ll ${CMAKE_CURRENT_BINARY_DIR}/lexer.cpp)
+FLEX_TARGET(MyScanner ../components/compiler/scanner.ll ${CMAKE_CURRENT_BINARY_DIR}/lexer.cpp COMPILE_FLAGS "-v -p")
 ADD_FLEX_BISON_DEPENDENCY(MyScanner MyParser)
 list (APPEND COMPONENT_FILES  ${BISON_MyParser_OUTPUTS} ${FLEX_MyScanner_OUTPUTS} )
 

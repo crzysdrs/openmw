@@ -345,10 +345,10 @@ namespace Compiler {
         int key = ext->searchKeyword(::Misc::StringUtils::lowerCase(e.getValue()));
         char oldtype;
         char global;
-        if (key != 0 && ext->isFunction(key, ret, args, explicitRef) && !mIgnoreFunctions) {
+        if (key != 0 && !mIgnoreFunctions && ext->isFunction(key, ret, args, explicitRef)) {
             boost::shared_ptr<AST::TypeSig> f(new AST::TypeFunction(args, ret));
             e.setSig(f);
-        } else if (key != 0 && ext->isInstruction(key, args, explicitRef) && !mIgnoreInstructions) {
+        } else if (key != 0 && !mIgnoreInstructions && ext->isInstruction(key, args, explicitRef)) {
             bool messagebox = false;
             if (::Misc::StringUtils::lowerCase(e.getValue()) == "messagebox") {
                 messagebox = true;
@@ -392,12 +392,10 @@ namespace Compiler {
                 boost::shared_ptr<AST::Expression> expr = e.getOffset();
                 acceptThis(expr);
                 doReplace(e, expr);
-            } else if (mModule.getContext().isId(rstr)) {
-                e.setSig(mModule.getSig(AST::STRING));
-            } else if (ext->isFunction(rkeyword, ret, args, explicitRef) && !mIgnoreFunctions) {
+            } else if (!mIgnoreFunctions && ext->isFunction(rkeyword, ret, args, explicitRef) ) {
                 boost::shared_ptr<AST::TypeSig> f(new AST::TypeFunction(args, ret));
                 e.setSig(f);
-            } else if (ext->isInstruction(rkeyword, args, explicitRef) && !mIgnoreInstructions) {
+            } else if (!mIgnoreInstructions && ext->isInstruction(rkeyword, args, explicitRef)) {
                 bool messagebox = false;
                 if (::Misc::StringUtils::lowerCase(rstr) == "messagebox") {
                     messagebox = true;
