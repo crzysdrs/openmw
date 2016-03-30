@@ -63,28 +63,41 @@ namespace MWScript
         const MWWorld::ESMStore &store =
             MWBase::Environment::get().getWorld()->getStore();
 
-        return
-            store.get<ESM::Activator>().search (name) ||
-            store.get<ESM::Potion>().search (name) ||
-            store.get<ESM::Apparatus>().search (name) ||
-            store.get<ESM::Armor>().search (name) ||
-            store.get<ESM::Book>().search (name) ||
-            store.get<ESM::Clothing>().search (name) ||
-            store.get<ESM::Container>().search (name) ||
-            store.get<ESM::Creature>().search (name) ||
-            store.get<ESM::Door>().search (name) ||
-            store.get<ESM::Ingredient>().search (name) ||
-            store.get<ESM::CreatureLevList>().search (name) ||
-            store.get<ESM::ItemLevList>().search (name) ||
-            store.get<ESM::Light>().search (name) ||
-            store.get<ESM::Lockpick>().search (name) ||
-            store.get<ESM::Miscellaneous>().search (name) ||
-            store.get<ESM::NPC>().search (name) ||
-            store.get<ESM::Probe>().search (name) ||
-            store.get<ESM::Repair>().search (name) ||
-            store.get<ESM::Static>().search (name) ||
-            store.get<ESM::Weapon>().search (name) ||
-            store.get<ESM::Script>().search (name);
+        static std::string lastValidResult;
+        static int reusedCount = 0;
+        static int unusedCount = 0;
+        if (!lastValidResult.empty() && lastValidResult == name) {
+            reusedCount ++;
+            return true;
+        } else {
+            unusedCount++;
+            bool result =
+                store.get<ESM::Activator>().search (name) ||
+                store.get<ESM::Potion>().search (name) ||
+                store.get<ESM::Apparatus>().search (name) ||
+                store.get<ESM::Armor>().search (name) ||
+                store.get<ESM::Book>().search (name) ||
+                store.get<ESM::Clothing>().search (name) ||
+                store.get<ESM::Container>().search (name) ||
+                store.get<ESM::Creature>().search (name) ||
+                store.get<ESM::Door>().search (name) ||
+                store.get<ESM::Ingredient>().search (name) ||
+                store.get<ESM::CreatureLevList>().search (name) ||
+                store.get<ESM::ItemLevList>().search (name) ||
+                store.get<ESM::Light>().search (name) ||
+                store.get<ESM::Lockpick>().search (name) ||
+                store.get<ESM::Miscellaneous>().search (name) ||
+                store.get<ESM::NPC>().search (name) ||
+                store.get<ESM::Probe>().search (name) ||
+                store.get<ESM::Repair>().search (name) ||
+                store.get<ESM::Static>().search (name) ||
+                store.get<ESM::Weapon>().search (name) ||
+                store.get<ESM::Script>().search (name);
+            if (result) {
+                lastValidResult = name;
+            }
+            return result;
+        }
     }
 
     bool CompilerContext::isJournalId (const std::string& name) const
