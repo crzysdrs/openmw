@@ -162,8 +162,8 @@ typedef Compiler::NewParser::token_type token_type;
 
 namespace Compiler {
 
-    NewScanner::NewScanner(std::istream* in,
-        std::ostream* out)
+    NewScanner::NewScanner(std::istream &in,
+        std::ostream & out)
         : ExampleFlexLexer(in, out), mLegacy(true), mKeywordContext(true)
     {
         BEGIN(KEYWORDS);

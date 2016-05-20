@@ -26,8 +26,7 @@ namespace Compiler {
     bool Driver::parse_stream(std::istream& in, const std::string& sname)
     {
         streamname = sname;
-
-        NewScanner scanner(&in);
+        NewScanner scanner(in, std::cout);
         scanner.set_debug(trace_scanning);
         this->lexer = &scanner;
 

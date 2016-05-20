@@ -39,8 +39,8 @@ namespace Compiler {
         /** Create a new scanner object. The streams arg_yyin and arg_yyout default
          * to cin and cout, but that assignment is only made when initializing in
          * yylex(). */
-        NewScanner(std::istream* arg_yyin = 0,
-            std::ostream* arg_yyout = 0);
+        NewScanner(std::istream & arg_yyin,
+            std::ostream & arg_yyout);
 
         /** Required for virtual functions */
         virtual ~NewScanner();

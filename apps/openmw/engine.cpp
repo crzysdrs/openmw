@@ -594,7 +594,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     std::cout << "Compile Time: " << duration << std::endl;
 
-    exit(0);
+    //exit(0);
 }
 
 class WriteScreenshotToFileOperation : public osgViewer::ScreenCaptureHandler::CaptureOperation
