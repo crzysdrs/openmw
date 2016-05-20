@@ -64,6 +64,8 @@ namespace Compiler
                 std::cout << "cast<" << c << ">(";
                 e.getExpr()->accept(*this);
                 std::cout << ")";
+            } else {
+                e.getExpr()->accept(*this);
             }
         };
         virtual void visit(AST::FloatLit & f) { std::cout << f.getValue();};
