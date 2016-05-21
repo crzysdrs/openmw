@@ -544,7 +544,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     // Create dialog system
     mEnvironment.setJournal (new MWDialogue::Journal);
-    mEnvironment.setDialogueManager (new MWDialogue::DialogueManager (mExtensions, mVerboseScripts, mTranslationDataStorage));
+    mEnvironment.setDialogueManager (new MWDialogue::DialogueManager (mExtensions, mVerboseScripts, mTranslationDataStorage, mNewCompiler));
 
     int op1 = Compiler::Ai::opcodeGetAiPackageDone;
     int op2 = -1;

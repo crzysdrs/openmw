@@ -17,6 +17,7 @@
 #include <components/compiler/locals.hpp>
 #include <components/compiler/output.hpp>
 #include <components/compiler/scriptparser.hpp>
+#include <components/compiler/newcompiler.hpp>
 
 #include <components/interpreter/interpreter.hpp>
 #include <components/interpreter/defines.hpp>
@@ -48,7 +49,7 @@
 
 namespace MWDialogue
 {
-    DialogueManager::DialogueManager (const Compiler::Extensions& extensions, bool scriptVerbose, Translation::Storage& translationDataStorage) :
+    DialogueManager::DialogueManager (const Compiler::Extensions& extensions, bool scriptVerbose, Translation::Storage& translationDataStorage, bool newCompiler) :
       mTranslationDataStorage(translationDataStorage)
       , mCompilerContext (MWScript::CompilerContext::Type_Dialogue)
       , mErrorStream(std::cout.rdbuf())
@@ -56,6 +57,7 @@ namespace MWDialogue
       , mTalkedTo(false)
       , mTemporaryDispositionChange(0.f)
       , mPermanentDispositionChange(0.f)
+      , mNewCompiler(newCompiler)
     {
         mChoice = -1;
         mIsInChoice = false;
@@ -197,13 +199,8 @@ namespace MWDialogue
         try
         {
             mErrorHandler.reset();
-
-            std::istringstream input (cmd + "\n");
-
-            Compiler::Scanner scanner (mErrorHandler, input, mCompilerContext.getExtensions());
-
             Compiler::Locals locals;
-
+            Compiler::Output output(locals);
             std::string actorScript = mActor.getClass().getScript (mActor);
 
             if (!actorScript.empty())
@@ -212,15 +209,29 @@ namespace MWDialogue
                 locals = MWBase::Environment::get().getScriptManager()->getLocals (actorScript);
             }
 
-            Compiler::ScriptParser parser(mErrorHandler,mCompilerContext, locals, false);
+            if (!mNewCompiler) {
+                std::istringstream input (cmd + "\n");
+                Compiler::Scanner scanner (mErrorHandler, input, mCompilerContext.getExtensions());
+                Compiler::ScriptParser parser(mErrorHandler,mCompilerContext, output.getLocals(), false);
+                scanner.scan (parser);
 
-            scanner.scan (parser);
+                if (!mErrorHandler.isGood())
+                    success = false;
 
-            if (!mErrorHandler.isGood())
-                success = false;
+                if (success)
+                    parser.getCode (code);
+            } else {
+                std::istringstream input ("begin actorscript\n" + cmd + "\nend actorscript\n");
+                Compiler::NewCompiler compiler(mErrorHandler, mCompilerContext);
+                compiler.compile_stream(input, "actorscript", output);
 
-            if (success)
-                parser.getCode (code);
+                if (!mErrorHandler.isGood()) {
+                    success = false;
+                } else {
+                    output.getCode(code);
+                }
+            }
+
         }
         catch (const Compiler::SourceException& /* error */)
         {

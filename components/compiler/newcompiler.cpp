@@ -24,7 +24,7 @@ namespace Compiler {
             return false;
         }
 
-        //print.visit(mod);
+        print.visit(mod);
         codegen.visit(mod);
         return true;
     }

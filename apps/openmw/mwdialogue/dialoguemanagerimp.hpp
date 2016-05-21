@@ -46,6 +46,7 @@ namespace MWDialogue
             float mTemporaryDispositionChange;
             float mPermanentDispositionChange;
 
+            bool mNewCompiler;
             void parseText (const std::string& text);
 
             void updateTopics();
@@ -58,7 +59,7 @@ namespace MWDialogue
 
         public:
 
-            DialogueManager (const Compiler::Extensions& extensions, bool scriptVerbose, Translation::Storage& translationDataStorage);
+        DialogueManager (const Compiler::Extensions& extensions, bool scriptVerbose, Translation::Storage& translationDataStorage, bool newCompiler);
 
             virtual void clear();
 
