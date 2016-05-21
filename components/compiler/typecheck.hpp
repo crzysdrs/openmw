@@ -82,7 +82,7 @@ namespace Compiler
     {
         Compiler::Context & mContext;
         StmtTypeCheck mStmt;
-        Locals mLocals;
+        Locals & mLocals;
         ErrorHandler & mError;
         std::map<AST::Type, boost::shared_ptr<AST::TypeSig> > mSigs;
     public:
@@ -90,7 +90,7 @@ namespace Compiler
         Compiler::Context & getContext();
         Compiler::Locals & getLocals();
         boost::shared_ptr<AST::TypeSig> getSig(AST::Type t);
-        ModuleTypeCheck(Compiler::ErrorHandler & h, Compiler::Context & c);
+        ModuleTypeCheck(Compiler::Locals & l, Compiler::ErrorHandler & h, Compiler::Context & c);
         virtual void visit(AST::Module & m);
     };
 }

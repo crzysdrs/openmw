@@ -356,13 +356,16 @@ namespace AST
     {
         boost::shared_ptr<Expression> mTarget;
         boost::shared_ptr<Expression> mExpr;
+        bool mSet;
     public:
         SetStatement(const Compiler::TokenLoc & t, boost::shared_ptr<Expression> target,
             boost::shared_ptr<Expression> expr)
-            : Statement(t), mTarget(target), mExpr(expr) {};
+            : Statement(t), mTarget(target), mExpr(expr), mSet(true) {};
         virtual void accept(Compiler::StmtVisitor & v);
         boost::shared_ptr<Expression> & getTarget() { return mTarget; }
         boost::shared_ptr<Expression> & getExpr() { return mExpr; }
+        void ignoreSet() { mSet = false; }
+        bool isValid() { return mSet; }
     };
 
     class WhileStatement : public Statement

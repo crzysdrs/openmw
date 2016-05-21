@@ -171,8 +171,8 @@ namespace Compiler {
             return res->second;
         }
     }
-    ModuleTypeCheck::ModuleTypeCheck(Compiler::ErrorHandler & h, Context & c)
-        : mError(h), mContext(c), mStmt(*this) {}
+    ModuleTypeCheck::ModuleTypeCheck(Compiler::Locals & l, Compiler::ErrorHandler & h, Context & c)
+        : mLocals(l), mError(h), mContext(c), mStmt(*this) {}
 
 
     void ModuleTypeCheck::visit(AST::Module & m) {
@@ -208,18 +208,15 @@ namespace Compiler {
         } else if (prim_l->getPrim() == AST::STRING ) {
             std::string newlocal;
             if (s.getTarget()->coerceString(newlocal)) {
-                l.declare(convertASTType(prim_r->getPrim()), newlocal);
-                mModule.getErrorHandler().warning("Created new unspecified local for set statement.", s.getLoc());
-                mExpr.acceptThis(s.getTarget());
+                mModule.getErrorHandler().warning("Unknown target in set statement.", s.getLoc());
             } else {
                 mModule.getErrorHandler().error("Unable to determine name for set statement.", s.getLoc());
             }
+            s.ignoreSet();
         } else if (prim_l != prim_r) {
             mModule.getErrorHandler().warning("Set Statement Target and Expression type do not match.", s.getLoc());
             argCoerce(mModule, convertASTType(prim_l->getPrim()), s.getExpr());
         }
-
-
     }
     void StmtTypeCheck::visit(AST::NoOp & n) {
         /* nothing to do */

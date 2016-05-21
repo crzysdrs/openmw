@@ -46,7 +46,7 @@ namespace MWScript
         mErrorHandler.reset();
         Compiler::NullErrorHandler noError;
 
-        Compiler::ErrorHandler & errorhandler = noError;
+        Compiler::ErrorHandler & errorhandler = mVerbose ? (Compiler::ErrorHandler &)mErrorHandler : (Compiler::ErrorHandler &)noError;
 
         if (!mNewCompiler) {
             mParser.reset();
@@ -223,13 +223,16 @@ namespace MWScript
             Compiler::Locals locals;
 
             std::istringstream stream (script->mScriptText);
-            Compiler::QuickFileParser parser (mErrorHandler, mCompilerContext, locals);
-            Compiler::Scanner scanner (mErrorHandler, stream, mCompilerContext.getExtensions());
-            scanner.scan (parser);
-
-            std::map<std::string, Compiler::Locals>::iterator iter =
-                mOtherLocals.insert (std::make_pair (name2, locals)).first;
-
+            if (!mNewCompiler) {
+                Compiler::QuickFileParser parser (mErrorHandler, mCompilerContext, locals);
+                Compiler::Scanner scanner (mErrorHandler, stream, mCompilerContext.getExtensions());
+                scanner.scan (parser);
+            } else {
+                Compiler::NewCompiler compiler(mErrorHandler, mCompilerContext);
+                Compiler::Output output(locals);
+                compiler.get_locals(stream, name2, output);
+            }
+            std::map<std::string, Compiler::Locals>::iterator iter = mOtherLocals.insert (std::make_pair (name2, locals)).first;
             return iter->second;
         }
 

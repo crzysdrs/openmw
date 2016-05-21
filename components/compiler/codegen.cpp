@@ -43,38 +43,43 @@ namespace Compiler {
     }
 
     void StmtCodegen::visit(AST::TypeDecl & s) {
+        /*
         Locals & l = mModule.getOutput().getLocals();
         l.declare(convertASTType(s.getType()), s.getName());
+        */
     }
     void StmtCodegen::visit(AST::SetStatement & s) {
         char target_type = convertType(*s.getTarget()->getSig());
         char from_type = convertType(*s.getExpr()->getSig());
-        mExprLHS.acceptThis(s.getTarget());
+        if (s.isValid()) {
+            mExprLHS.acceptThis(s.getTarget());
+        }
         mExprRHS.acceptThis(s.getExpr());
-
-        boost::shared_ptr<AST::GlobalVar> global_target = boost::dynamic_pointer_cast<AST::GlobalVar>(s.getTarget());
-        boost::shared_ptr<AST::MemberVar> member_target = boost::dynamic_pointer_cast<AST::MemberVar>(s.getTarget());
-        boost::shared_ptr<AST::LocalVar> local_target = boost::dynamic_pointer_cast<AST::LocalVar>(s.getTarget());
-        if (global_target) {
-            Generator::storeGlobal(
-                mModule.getOutput().getCode(),
-                target_type,
-                from_type
-                                   );
-        } else if (member_target) {
-            boost::shared_ptr<AST::TypePrimitive> primsig = boost::dynamic_pointer_cast<AST::TypePrimitive>(s.getTarget()->getSig());
-            Generator::storeMember(
-                mModule.getOutput().getCode(),
-                target_type,
-                primsig->getGlobal()
-             );
-        } else if (local_target) {
-            Generator::storeLocal(
-                mModule.getOutput().getCode(),
-                target_type
-            );
-        } else {
-            assert(0);
+        if (s.isValid()) {
+            boost::shared_ptr<AST::GlobalVar> global_target = boost::dynamic_pointer_cast<AST::GlobalVar>(s.getTarget());
+            boost::shared_ptr<AST::MemberVar> member_target = boost::dynamic_pointer_cast<AST::MemberVar>(s.getTarget());
+            boost::shared_ptr<AST::LocalVar> local_target = boost::dynamic_pointer_cast<AST::LocalVar>(s.getTarget());
+            if (global_target) {
+                Generator::storeGlobal(
+                    mModule.getOutput().getCode(),
+                    target_type,
+                    from_type
+                                       );
+            } else if (member_target) {
+                boost::shared_ptr<AST::TypePrimitive> primsig = boost::dynamic_pointer_cast<AST::TypePrimitive>(s.getTarget()->getSig());
+                Generator::storeMember(
+                    mModule.getOutput().getCode(),
+                    target_type,
+                    primsig->getGlobal()
+                                       );
+            } else if (local_target) {
+                Generator::storeLocal(
+                    mModule.getOutput().getCode(),
+                    target_type
+                                      );
+            } else {
+                assert(0);
+            }
         }
     }
     void StmtCodegen::visit(AST::NoOp & n) {

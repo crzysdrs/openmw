@@ -98,7 +98,7 @@ add_component_dir (files
     )
 
 add_component_dir (compiler
-    ast driver astvisitor typecheck codegen newcompiler
+    ast driver astvisitor typecheck codegen newcompiler scanlocals
     context controlparser errorhandler exception exprparser extensions fileparser generator
     lineparser literals locals output parser scanner scriptparser skipparser streamerrorhandler
     stringparser tokenloc nullerrorhandler opcodes extensions0 declarationparser
