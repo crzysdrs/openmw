@@ -165,8 +165,6 @@ typedef boost::shared_ptr<AST::Statement> shared_stmt;
 
  /*** BEGIN EXAMPLE - Change the example grammar rules below ***/
 
-keyword_off : %empty //{ driver.lexer->set_keyword_context(false); };
-
 statement_list : statement_list line_statement { $1->push_back(*$2); $$ = $1; }
 | %empty { $$ = new std::vector<shared_stmt>(); }
 ;
@@ -221,21 +219,20 @@ inner_statement
   driver.warning(@1, "Unexpected End If Statement.");
   $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1)));
   }
-
 ;
 
 set_statement :
-  SET keyword_off ref string_ident expr {
+  SET ref string_ident expr {
     std::string to("to");
-    if (::Misc::StringUtils::lowerCase(**$4) != to) {
-      error(@4, "Must use TO in SET statement.");
+    if (::Misc::StringUtils::lowerCase(**$3) != to) {
+      error(@3, "Must use TO in SET statement.");
     }
-    $$ = new shared_stmt(new AST::SetStatement(driver.tokenLoc(@1), *$3, *$5));
+    $$ = new shared_stmt(new AST::SetStatement(driver.tokenLoc(@1), *$2, *$4));
   }
 ;
 
 type_decl :
-type keyword_off string_ident { $$ = new shared_stmt(new AST::TypeDecl(driver.tokenLoc(@1), $1, *$3)); }
+type string_ident { $$ = new shared_stmt(new AST::TypeDecl(driver.tokenLoc(@1), $1, *$2)); }
 ;
 
 type :
@@ -343,7 +340,7 @@ else_if : ELSEIF
 ;
 
 elseif_statement :
-else_if keyword_off expr eol statement_list %prec ENDIF { $$ = new boost::shared_ptr<AST::IfStatement>(new AST::IfStatement(driver.tokenLoc(@1), *$3, *$5)); }
+else_if expr eol statement_list %prec ENDIF { $$ = new boost::shared_ptr<AST::IfStatement>(new AST::IfStatement(driver.tokenLoc(@1), *$2, *$4)); }
 ;
 
 elseifs :
@@ -384,14 +381,14 @@ conditional_statement:
 ;
 
 if_statement :
-IF keyword_off expr eol inner_statement_list branches {
-  $$ = new shared_stmt(new AST::IfStatement(driver.tokenLoc(@1), *$3, *$5, *$6));
+IF expr eol inner_statement_list branches {
+  $$ = new shared_stmt(new AST::IfStatement(driver.tokenLoc(@1), *$2, *$4, *$5));
 }
 ;
 
 ;
 while_statement :
-WHILE keyword_off expr eol statement_list ENDWHILE { $$ = new shared_stmt(new AST::WhileStatement(driver.tokenLoc(@1), *$3, *$5)); }
+WHILE expr eol statement_list ENDWHILE { $$ = new shared_stmt(new AST::WhileStatement(driver.tokenLoc(@1), *$2, *$4)); }
 ;
 
 
@@ -407,15 +404,15 @@ arg_list simple_expr { $1->push_back(*$2); $$ = $1; }
 ;
 
 fn_call :
-ref keyword_off arg_list %prec LOW {
-  $3->insert($3->begin(), *$1);
-  $$ = new shared_expr(new AST::ExprItems(driver.tokenLoc(@1), *$3));
+ref arg_list %prec LOW {
+  $2->insert($2->begin(), *$1);
+  $$ = new shared_expr(new AST::ExprItems(driver.tokenLoc(@1), *$2));
 }
-| ref keyword_off arg_list error %prec LOW {
+| ref arg_list error %prec LOW {
   driver.reportDeferredAsWarning();
-  driver.warning(@4, "Junk at end of line discarded");
-  $3->insert($3->begin(), *$1);
-  $$ = new shared_expr(new AST::ExprItems(driver.tokenLoc(@1), *$3)); }
+  driver.warning(@3, "Junk at end of line discarded");
+  $2->insert($2->begin(), *$1);
+  $$ = new shared_expr(new AST::ExprItems(driver.tokenLoc(@1), *$2)); }
 ;
 
 control_flow : conditional_statement
@@ -428,8 +425,8 @@ optional_idents maybe_eol {}
 ;
 
 block :
-maybe_eol BEGIN_BLOCK keyword_off string_ident eol statement_list END_BLOCK keyword_off after_block  {
-    $$ = new boost::shared_ptr<AST::Module>(new AST::Module(driver.tokenLoc(@1), *$4, *$6));
+maybe_eol BEGIN_BLOCK string_ident eol statement_list END_BLOCK after_block  {
+    $$ = new boost::shared_ptr<AST::Module>(new AST::Module(driver.tokenLoc(@1), *$3, *$5));
     //printf("%s parsed\n", (*$4)->c_str());
     driver.setResult(*$$);
 }
