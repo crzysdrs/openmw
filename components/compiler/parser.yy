@@ -10,6 +10,7 @@
 #include <boost/make_shared.hpp>
 
 #include <components/compiler/ast.hpp>
+#include <components/misc/stringops.hpp>
 
 typedef boost::shared_ptr<AST::Expression> shared_expr;
 typedef boost::shared_ptr<AST::Statement> shared_stmt;
@@ -186,7 +187,6 @@ line_statement : statement eol {$$ = $1;}
 | error eol {
   driver.reportDeferredAsWarning();
   driver.warning(@1, "Discarded invalid statement");
-  //yyerrok;
   $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
 ;
 
@@ -194,7 +194,6 @@ inner_line_statement : inner_statement eol {$$ = $1;}
 | error eol {
   driver.reportDeferredAsWarning();
   driver.warning(@1, "Discarded invalid statement");
-  //yyerrok;
   $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
 ;
 
@@ -209,7 +208,7 @@ inner_statement:
 statement :
 inner_statement
 | else_statement endif {
-  driver.warning(@1, "Unexpected Else Statement");
+  driver.warning(@1, "Unexpected Else Statement. Discarding all sub statements.");
   $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1)));
 }
 | elseif_statement branches endif {
@@ -219,7 +218,7 @@ inner_statement
 
 }
 | endif {
-  driver.warning(@1, "Unexpected End If Statement. Discaring all sub statements.");
+  driver.warning(@1, "Unexpected End If Statement.");
   $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1)));
   }
 
@@ -227,6 +226,10 @@ inner_statement
 
 set_statement :
   SET keyword_off ref string_ident expr {
+    std::string to("to");
+    if (::Misc::StringUtils::lowerCase(**$4) != to) {
+      error(@4, "Must use TO in SET statement.");
+    }
     $$ = new shared_stmt(new AST::SetStatement(driver.tokenLoc(@1), *$3, *$5));
   }
 ;
