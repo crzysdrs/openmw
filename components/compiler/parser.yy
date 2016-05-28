@@ -296,8 +296,8 @@ paren_expr :
       $$ = new shared_expr(boost::static_pointer_cast<AST::Expression>(items));
     }
   } else {
-    /* no other expression types should be valid here but probably should do an error instead */
-    assert(0);
+    /* There is a possibilty that other expressions types could exist here, but it's not worth handling the rest. */
+    error(@3, "Syntax error: Unexpected '('.");
   }
 }
 ;
