@@ -517,7 +517,7 @@ namespace Compiler {
 
      boost::shared_ptr<AST::Expression> ExprTypeCheck::processFn(
         expr_iter & cur_expr, expr_iter & end_expr,
-        arg_iter & cur_arg, arg_iter & end_arg, int optional)
+        arg_iter & cur_arg, arg_iter & end_arg, bool toplevel, int optional)
      {
          ExprTypeCheck immute_expr(*this);
          immute_expr.setImmutable();
@@ -538,27 +538,27 @@ namespace Compiler {
              }
              arg_iter sub_arg_cur = argtypesig->getArgs().begin();
              arg_iter sub_arg_end = argtypesig->getArgs().end();
+             bool optional = false;
 
-             boost::shared_ptr<AST::CallArgs> result = processArgs(sub_expr_cur, sub_expr_end, sub_arg_cur, sub_arg_end, false);
+             boost::shared_ptr<AST::CallArgs> result = processArgs(sub_expr_cur, sub_expr_end, sub_arg_cur, sub_arg_end, optional);
+             ExprTypeCheck ignoremethods(*this);
              if (result) {
                  new_expr = boost::shared_ptr<AST::Expression>(new AST::CallExpr((*cur_expr)->getLoc(), *cur_expr, result));
-                 if (sub_arg_cur == sub_arg_end) {
+                 if ((sub_arg_cur == sub_arg_end || optional) && (!toplevel || sub_expr_cur == end_expr)) {
+                     cur_expr = sub_expr_cur;
                      return new_expr;
                  } else {
+                     /* we have a remainder at the top level */
                      cur_expr = sub_expr_cur;
                  }
-             }
-             if (cur_expr != end_expr) {
-                 /* failed to process, re-evaluate as non-method call */
-                 ExprTypeCheck ignoremethods(*this);
-                 ignoremethods.setIgnoreCalls();
-                 ignoremethods.acceptThis(*cur_expr);
-
-                 loc = (*cur_expr)->getLoc();
-                 exprsig = (*cur_expr)->getSig();
              } else {
-                 return new_expr;
+                 ignoremethods.setIgnoreCalls();
              }
+             /* failed to process (or have remainder at toplevel), re-evaluate as non-method call */
+             ignoremethods.acceptThis(*cur_expr);
+
+             loc = (*cur_expr)->getLoc();
+             exprsig = (*cur_expr)->getSig();
          }
 
          if (isNumeric(*exprsig)) {
@@ -572,16 +572,18 @@ namespace Compiler {
                  loc = (*cur_expr)->getLoc();
                  if (neg) {
                      *cur_expr = neg->getExpr();
-                     boost::shared_ptr<AST::Expression> sub_expr = processFn(cur_expr, end_expr, cur_arg, end_arg, false);
+                     boost::shared_ptr<AST::Expression> sub_expr = processFn(cur_expr, end_expr, cur_arg, end_arg, false, false);
                      if (sub_expr) {
                          boost::shared_ptr<AST::Expression> neg_exp(new AST::NegateExpr(sub_expr->getLoc(), sub_expr));
                          boost::shared_ptr<AST::Expression> big_e(new AST::MathExpr(loc, AST::MINUS, new_expr, sub_expr));
                          new_expr = big_e;
                      } else {
-                         throw "Not a valid sub expression";
+                         mModule.getErrorHandler().error("Not a valid sub-expression.", loc);
+                         return boost::shared_ptr<AST::Expression>();
                      }
                  } else {
-                     throw "not a math expression";
+                     mModule.getErrorHandler().error("Not a negation sub-expression.", loc);
+                     return boost::shared_ptr<AST::Expression>();
                  }
                  cur_expr++;
              }
@@ -594,7 +596,7 @@ namespace Compiler {
 
      boost::shared_ptr<AST::CallArgs> ExprTypeCheck::processArgs(
         expr_iter & cur_expr, expr_iter & end_expr,
-        arg_iter & cur_arg, arg_iter & end_arg, int optional)
+        arg_iter & cur_arg, arg_iter & end_arg, bool & optional)
      {
         std::vector<boost::shared_ptr<AST::Expression> > exprs;
         TokenLoc loc;
@@ -626,16 +628,17 @@ namespace Compiler {
                     boost::shared_ptr<AST::TypeArgs> argtypesig = boost::dynamic_pointer_cast<AST::TypeArgs>(exprsig);
                     boost::shared_ptr<AST::Expression> e = *cur_expr;
                     if (argtypesig) {
-                        boost::shared_ptr<AST::Expression> fn_e = processFn(cur_expr, end_expr, cur_arg, end_arg, optional);
+                        boost::shared_ptr<AST::Expression> fn_e = processFn(cur_expr, end_expr, cur_arg, end_arg, false, optional);
                         if (fn_e) {
                             e = fn_e;
                             acceptThis(fn_e);
                         }
+                    } else {
+                        cur_expr++;
                     }
 
                     argCoerce(mModule, *cur_arg, e);
                     exprs.push_back(e);
-                    cur_expr++;
                 }
                 break;
             case 'x':
@@ -682,7 +685,7 @@ namespace Compiler {
         expr_iter cur_expr = e.getItems().begin();
         expr_iter end_expr = e.getItems().end();
         arg_iter ignore;
-        boost::shared_ptr<AST::Expression> newe = processFn(cur_expr, end_expr, ignore, ignore, false);
+        boost::shared_ptr<AST::Expression> newe = processFn(cur_expr, end_expr, ignore, ignore, true, false);
         if (newe) {
             acceptThis(newe);
             doReplace(e, newe);

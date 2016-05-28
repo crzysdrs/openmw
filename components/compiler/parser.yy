@@ -183,11 +183,19 @@ maybe_eol : eol
 ;
 
 line_statement : statement eol {$$ = $1;}
-| error eol { printf("Maybe cleaned up error?\n"); yyerrok; $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
+| error eol {
+  driver.reportDeferredAsWarning();
+  driver.warning(@1, "Discarded invalid statement");
+  //yyerrok;
+  $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
 ;
 
 inner_line_statement : inner_statement eol {$$ = $1;}
-| error eol { printf("Maybe cleaned up error?\n");  yyerrok; $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
+| error eol {
+  driver.reportDeferredAsWarning();
+  driver.warning(@1, "Discarded invalid statement");
+  //yyerrok;
+  $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
 ;
 
 
@@ -195,20 +203,23 @@ inner_statement:
  type_decl
 | control_flow
 | set_statement
- //| '(' expr ')' { $$ = new shared_stmt(new AST::StatementExpr(driver.tokenLoc(@1), *$2)); }
-| fn_call { $$ = new shared_stmt(new AST::StatementExpr(driver.tokenLoc(@1), *$1)); }
+| expr  { $$ = new shared_stmt(new AST::StatementExpr(driver.tokenLoc(@1), *$1)); }
 ;
+
 statement :
 inner_statement
 | else_statement endif {
-  printf("Spurious Else Branch\n");
+  driver.warning(@1, "Unexpected Else Statement");
   $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1)));
 }
 | elseif_statement branches endif {
-  printf("Spurious Elseif branches\n");
-  $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1))); }
+  driver.warning(@1, "Unexpected Else If Statement. Treating as an if statement.");
+  (*$1)->setElse(*$2);
+  $$ = new shared_stmt(boost::static_pointer_cast<AST::Statement>(*$1));
+
+}
 | endif {
-  printf("Spurious End if\n");
+  driver.warning(@1, "Unexpected End If Statement. Discaring all sub statements.");
   $$ = new shared_stmt(new AST::NoOp(driver.tokenLoc(@1)));
   }
 
@@ -398,7 +409,8 @@ ref keyword_off arg_list %prec LOW {
   $$ = new shared_expr(new AST::ExprItems(driver.tokenLoc(@1), *$3));
 }
 | ref keyword_off arg_list error %prec LOW {
-  printf("One or more arguments may have been discarded\n");
+  driver.reportDeferredAsWarning();
+  driver.warning(@4, "Junk at end of line discarded");
   $3->insert($3->begin(), *$1);
   $$ = new shared_expr(new AST::ExprItems(driver.tokenLoc(@1), *$3)); }
 ;
@@ -421,7 +433,8 @@ maybe_eol BEGIN_BLOCK keyword_off string_ident eol statement_list END_BLOCK keyw
 
 start : block
 | block error EOF_T {
-  yyerrok; printf("Error outside of block\n");
+  driver.resetDeferred();
+  driver.warning(@2, "Extra script data outside after END statement.");
 }
 
  /*** END EXAMPLE - Change the example grammar rules above ***/
@@ -431,5 +444,5 @@ start : block
 void Compiler::NewParser::error(const NewParser::location_type& l,
 			    const std::string& m)
 {
-    driver.error(l, m);
+  driver.deferredError(l, m);
 }

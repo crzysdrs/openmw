@@ -6,7 +6,7 @@
 
 namespace Compiler {
     NewCompiler::NewCompiler(ErrorHandler & errors, Context & context)
-        : mError(errors), mContext(context)
+        : mError(errors), mContext(context), mDriver(errors)
     {
 
     }
@@ -17,7 +17,7 @@ namespace Compiler {
         Compiler::ModuleTypeCheck typecheck(output.getLocals(), mError, mContext);
         Compiler::ModuleCodegen codegen(mContext, output);
 
-        //print.visit(mod);
+        print.visit(mod);
         typecheck.visit(mod);
 
         if (!mError.isGood()) {

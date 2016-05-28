@@ -24,10 +24,10 @@ namespace Compiler
         ExprTypeCheck(ModuleTypeCheck & m);
         boost::shared_ptr<AST::CallArgs> processArgs(
             expr_iter & cur_expr, expr_iter & end_expr,
-            arg_iter & cur_arg, arg_iter & end_arg, int optional);
+            arg_iter & cur_arg, arg_iter & end_arg, bool & optional);
         boost::shared_ptr<AST::Expression> processFn(
             expr_iter & cur_expr, expr_iter & end_expr,
-            arg_iter & cur_arg, arg_iter & end_arg, int optional);
+            arg_iter & cur_arg, arg_iter & end_arg, bool toplevel, int optional);
         void doReplace(AST::Expression & e, boost::shared_ptr<AST::Expression> replace);
         ExprTypeCheck(const ExprTypeCheck & old)
             : mModule(old.mModule), mIgnoreFunctions(old.mIgnoreFunctions), mIgnoreInstructions(old.mIgnoreInstructions), mMutable(old.mMutable) {

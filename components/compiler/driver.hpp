@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "ast.hpp"
+#include "errorhandler.hpp"
 
 /** The example namespace is used to encapsulate the three parser classes
  * example::Parser, example::Scanner and example::Driver */
@@ -22,9 +23,13 @@ namespace Compiler {
 class Driver
 {
     boost::shared_ptr<AST::Module> mResult;
+    ErrorHandler & mError;
+    bool mDeferred;
+    TokenLoc mDeferredL;
+    std::string mDeferredM;
 public:
     /// construct a new parser driver context
-    Driver();
+    Driver(ErrorHandler & error);
 
     void setResult(boost::shared_ptr<AST::Module> & m);
     AST::Module & getResult();
@@ -70,7 +75,12 @@ public:
     /** Error handling with associated line number. This can be modified to
      * output the error e.g. to a dialog box. */
     void error(const class location& l, const std::string& m);
+    void warning(const class location& l, const std::string& m);
 
+    void deferredError(const class location &l,
+        const std::string & m);
+    void resetDeferred();
+    void reportDeferredAsWarning();
     /** General error handling. This can be modified to output the error
      * e.g. to a dialog box. */
     void error(const std::string& m);

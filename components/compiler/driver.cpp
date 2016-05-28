@@ -8,10 +8,14 @@
 #include "newscanner.hpp"
 
 namespace Compiler {
-    Driver::Driver()
+    Driver::Driver(ErrorHandler & error)
         : mResult(),
+          mError(error),
           trace_scanning(false),
-          trace_parsing(false)
+          trace_parsing(false),
+          mDeferred(false),
+          mDeferredM(),
+          mDeferredL()
     {
     }
 
@@ -32,7 +36,13 @@ namespace Compiler {
 
         NewParser parser(*this);
         parser.set_debug_level(trace_parsing);
-        return (parser.parse() == 0);
+        bool success = parser.parse() == 0;
+        if (mDeferred) {
+            success = false;
+            mError.error(mDeferredM, mDeferredL);
+            mDeferred = false;
+        }
+        return success;
     }
 
     bool Driver::parse_file(const std::string &filename)
@@ -48,17 +58,51 @@ namespace Compiler {
         return parse_stream(iss, sname);
     }
 
+    void Driver::deferredError(const class location &l,
+        const std::string & m)
+    {
+        if (mDeferred) {
+            mError.error(mDeferredM, mDeferredL);
+        }
+        mDeferred = true;
+        mDeferredL = tokenLoc(l);
+        mDeferredM = m;
+    }
+
+    void Driver::resetDeferred()
+    {
+        mDeferred = false;
+    }
+    void Driver::reportDeferredAsWarning() {
+        if (mDeferred) {
+            mError.warning(mDeferredM, mDeferredL);
+            mDeferred = false;
+        }
+    }
     void Driver::error(const class location& l,
         const std::string& m)
     {
-        std::cerr << l << ": " << m << std::endl;
+        if (mDeferred) {
+            mError.error(mDeferredM, mDeferredL);
+            mDeferred = false;
+        }
+        mError.error(m, tokenLoc(l));
+    }
+
+    void Driver::warning(const class location& l,
+        const std::string& m)
+    {
+        mError.warning(m, tokenLoc(l));
     }
 
     void Driver::error(const std::string& m)
     {
-        std::cerr << m << std::endl;
+        TokenLoc t;
+        t.mColumn = -1;
+        t.mLine = -1;
+        t.mLiteral = "";
+        mError.error(m, t);
     }
-
 
     TokenLoc Driver::tokenLoc(const class location &loc)
     {

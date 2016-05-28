@@ -47,20 +47,21 @@ namespace MWGui
         try
         {
             ErrorHandler::reset();
-#if 0
-            std::istringstream input (cmd + '\n');
+            if (!mNewCompiler) {
+                std::istringstream input (cmd + '\n');
 
-            Compiler::Scanner scanner (*this, input, mCompilerContext.getExtensions());
+                Compiler::Scanner scanner (*this, input, mCompilerContext.getExtensions());
 
-            Compiler::LineParser parser (*this, mCompilerContext, output.getLocals(),
-                output.getLiterals(), output.getCode(), true);
+                Compiler::LineParser parser (*this, mCompilerContext, output.getLocals(),
+                    output.getLiterals(), output.getCode(), true);
 
-            scanner.scan (parser);
-#else
-            Compiler::NewCompiler newcompiler(*this, mCompilerContext);
-            std::istringstream input ("begin consoleinput\n" + cmd + "\n end consoleinput");
-            newcompiler.compile_stream(input, "consoleinput", output);
-#endif
+                scanner.scan (parser);
+            } else {
+                Compiler::NewCompiler newcompiler(*this, mCompilerContext);
+                std::istringstream input ("begin consoleinput\n" + cmd + "\n end consoleinput");
+                newcompiler.compile_stream(input, "consoleinput", output);
+            }
+
             return isGood();
         }
         catch (const Compiler::SourceException&)
@@ -126,10 +127,11 @@ namespace MWGui
         }
     }
 
-    Console::Console(int w, int h, bool consoleOnlyScripts)
+    Console::Console(int w, int h, bool consoleOnlyScripts, bool newcompiler)
       : WindowBase("openmw_console.layout"),
         mCompilerContext (MWScript::CompilerContext::Type_Console),
-        mConsoleOnlyScripts (consoleOnlyScripts)
+        mConsoleOnlyScripts (consoleOnlyScripts),
+        mNewCompiler (newcompiler)
     {
         setCoord(10,10, w-10, h/2);
 

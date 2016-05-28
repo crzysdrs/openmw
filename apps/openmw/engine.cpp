@@ -499,7 +499,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     MWGui::WindowManager* window = new MWGui::WindowManager(mViewer, guiRoot, mResourceSystem.get(),
                 mCfgMgr.getLogPath().string() + std::string("/"), myguiResources,
                 mScriptConsoleMode, mTranslationDataStorage, mEncoding, mExportFonts, mFallbackMap,
-                Version::getOpenmwVersionDescription(mResDir.string()));
+        Version::getOpenmwVersionDescription(mResDir.string()), mNewCompiler);
     mEnvironment.setWindowManager (window);
 
     // Create sound system
@@ -560,9 +560,9 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     e.registerFunction("getsecondspassed", 'f', "", op1, op2);
 
     e.registerInstruction("messagebox", "S/SSSSSSSSSSSSSSSSSSSSSSSSSSS", 0x20000, op2);
-    e.registerInstruction("disable", "", op1, opexplicit);
-    e.registerInstruction("enable", "", op1, opexplicit);
-    e.registerFunction("getdisabled", 's', "", op1, opexplicit);
+    e.registerInstruction("disable", "x", op1, opexplicit);
+    e.registerInstruction("enable", "x", op1, opexplicit);
+    e.registerFunction("getdisabled", 's', "x", op1, opexplicit);
 
     std::clock_t start;
     double duration;

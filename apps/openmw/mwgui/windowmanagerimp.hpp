@@ -121,7 +121,7 @@ namespace MWGui
 
     WindowManager(osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem,
                   const std::string& logpath, const std::string& cacheDir, bool consoleOnlyScripts,
-                  Translation::Storage& translationDataStorage, ToUTF8::FromType encoding, bool exportFonts, const std::map<std::string,std::string>& fallbackMap, const std::string& versionDescription);
+        Translation::Storage& translationDataStorage, ToUTF8::FromType encoding, bool exportFonts, const std::map<std::string,std::string>& fallbackMap, const std::string& versionDescription, bool newcompiler);
     virtual ~WindowManager();
 
     /// Set the ESMStore to use for retrieving of GUI-related strings.
@@ -494,11 +494,11 @@ namespace MWGui
     void updateMap();
 
     std::map<std::string, std::string> mFallbackMap;
-    
+
     int mShowOwned;
 
     std::string mVersionDescription;
-
+    bool mNewCompiler;
     /**
      * Called when MyGUI tries to retrieve a tag's value. Tags must be denoted in #{tag} notation and will be replaced upon setting a user visible text/property.
      * Supported syntax:

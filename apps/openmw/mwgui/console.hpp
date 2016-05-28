@@ -37,7 +37,7 @@ namespace MWGui
             StringList::iterator mCurrent;
             std::string mEditString;
 
-            Console(int w, int h, bool consoleOnlyScripts);
+            Console(int w, int h, bool consoleOnlyScripts, bool newcompiler);
 
             virtual void open();
             virtual void close();
@@ -83,6 +83,7 @@ namespace MWGui
             MWScript::CompilerContext mCompilerContext;
             std::vector<std::string> mNames;
             bool mConsoleOnlyScripts;
+            bool mNewCompiler;
 
             bool compile (const std::string& cmd, Compiler::Output& output);
 

@@ -116,7 +116,8 @@ namespace MWGui
     WindowManager::WindowManager(
             osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem
             , const std::string& logpath, const std::string& resourcePath, bool consoleOnlyScripts,
-            Translation::Storage& translationDataStorage, ToUTF8::FromType encoding, bool exportFonts, const std::map<std::string, std::string>& fallbackMap, const std::string& versionDescription)
+            Translation::Storage& translationDataStorage, ToUTF8::FromType encoding, bool exportFonts, const std::map<std::string, std::string>& fallbackMap, const std::string& versionDescription,
+            bool newcompiler)
       : mStore(NULL)
       , mResourceSystem(resourceSystem)
       , mViewer(viewer)
@@ -192,6 +193,7 @@ namespace MWGui
       , mFallbackMap(fallbackMap)
       , mShowOwned(0)
       , mVersionDescription(versionDescription)
+      , mNewCompiler(newcompiler)
     {
         float uiScale = Settings::Manager::getFloat("scaling factor", "GUI");
         mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), uiScale);
@@ -287,7 +289,7 @@ namespace MWGui
         trackWindow(mMap, "map");
         mStatsWindow = new StatsWindow(mDragAndDrop);
         trackWindow(mStatsWindow, "stats");
-        mConsole = new Console(w,h, mConsoleOnlyScripts);
+        mConsole = new Console(w,h, mConsoleOnlyScripts, mNewCompiler);
         trackWindow(mConsole, "console");
 
         bool questList = mResourceSystem->getVFS()->exists("textures/tx_menubook_options_over.dds");
@@ -1123,20 +1125,20 @@ namespace MWGui
     void WindowManager::onRetrieveTag(const MyGUI::UString& _tag, MyGUI::UString& _result)
     {
         std::string tag(_tag);
-        
+
         std::string MyGuiPrefix = "setting=";
         size_t MyGuiPrefixLength = MyGuiPrefix.length();
 
         std::string tokenToFind = "sCell=";
         size_t tokenLength = tokenToFind.length();
-        
+
         if(tag.compare(0, MyGuiPrefixLength, MyGuiPrefix) == 0)
         {
             tag = tag.substr(MyGuiPrefixLength, tag.length());
             std::string settingSection = tag.substr(0, tag.find(","));
             std::string settingTag = tag.substr(tag.find(",")+1, tag.length());
-            
-            _result = Settings::Manager::getString(settingTag, settingSection);            
+
+            _result = Settings::Manager::getString(settingTag, settingSection);
         }
         else if (tag.compare(0, tokenLength, tokenToFind) == 0)
         {
