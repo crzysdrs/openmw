@@ -6,10 +6,10 @@
 
 namespace Compiler {
     NewCompiler::NewCompiler(ErrorHandler & errors, Context & context)
-        : mError(errors), mContext(context), mDriver(errors)
+        : mError(errors), mContext(context), mDriver(errors), mExtState(false)
     {
         if (mContext.getExtensions()) {
-            mContext.getExtensions()->setNewCompiler(true);
+            mExtState = mContext.getExtensions()->setNewCompiler(true);
         }
     }
 
@@ -81,7 +81,7 @@ namespace Compiler {
 
     NewCompiler::~NewCompiler() {
         if (mContext.getExtensions()) {
-            mContext.getExtensions()->setNewCompiler(false);
+            mContext.getExtensions()->setNewCompiler(mExtState);
         }
     }
 }

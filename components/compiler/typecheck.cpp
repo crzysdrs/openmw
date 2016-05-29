@@ -450,7 +450,7 @@ namespace Compiler {
                 boost::shared_ptr<AST::TypeSig> f(new AST::TypeFunction(args, ret));
                 e.setSig(f);
                 if (!explicitRef) {
-                    mModule.getErrorHandler().warning("Discaring uneeded explicit reference.", e.getLoc());
+                    mModule.getErrorHandler().warning("Discarding uneeded explicit reference.", e.getLoc());
                     e.setBase(boost::shared_ptr<AST::StringLit>());
                 }
             } else if (ext->isInstruction(rkeyword, args, explicitRef)) {

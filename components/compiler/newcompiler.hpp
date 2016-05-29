@@ -11,6 +11,7 @@ namespace Compiler {
         Driver mDriver;
         ErrorHandler & mError;
         Context & mContext;
+        bool mExtState;
         bool compile(AST::Module & mod, Output & output);
         bool doLocals(AST::Module & mod, Output & output);
     public:

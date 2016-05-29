@@ -68,7 +68,11 @@ namespace Compiler
 
             Extensions();
 
-            void setNewCompiler(bool newCompiler) { mNewCompiler = newCompiler; };
+            bool setNewCompiler(bool newCompiler) {
+                bool old = mNewCompiler;
+                mNewCompiler = newCompiler;
+                return old;
+            };
 
             int searchKeyword (const std::string& keyword) const;
             ///< Return extension keyword code, that is assigned to the string \a keyword.
