@@ -103,6 +103,7 @@ CSVWorld::ScriptErrorTable::ScriptErrorTable (const CSMDoc::Document& document, 
 void CSVWorld::ScriptErrorTable::update (const std::string& source)
 {
     clear();
+    Compiler::ErrorHandler::reset();
 
     try
     {

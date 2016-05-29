@@ -3,6 +3,7 @@
 #include "extensions.hpp"
 #include "extensions0.hpp"
 #include "errorhandler.hpp"
+#include "exception.hpp"
 
 #include <string>
 #include <iostream>
@@ -55,7 +56,7 @@ namespace Compiler {
         case 'c': /* fallthrough */
         case 'S': return AST::STRING;
         default:
-            throw "Invalid Type";
+            return AST::UNDEFINED;
         }
     }
     static AST::shared_typesig convertOldType(ModuleTypeCheck & mod, char type)
@@ -67,7 +68,7 @@ namespace Compiler {
         case 'c': /* fallthrough */
         case 'S': return mod.getSig(AST::STRING);
         default:
-            throw "Invalid Type";
+            return mod.getSig(AST::UNDEFINED);
         }
     }
 
@@ -96,21 +97,45 @@ namespace Compiler {
         AST::shared_typesig shortsig = m.getSig(AST::SHORT);
 
         if (!t1 || !t2 || !floatsig || !longsig || !shortsig) {
-            throw "Missing Signatures";
+            m.getErrorHandler().error("Unable to typecheck expression.", e1.getLoc());
+            return m.getSig(AST::UNDEFINED);
         } else if (!isNumeric(*t1) || !isNumeric(*t2)) {
             m.getErrorHandler().error("Attempting to use non-numeric types in binary expr.", e1.getLoc());
             return m.getSig(AST::UNDEFINED);
         } else if (*t1 == *t2) {
             return t1;
         } else if (*t1 == *floatsig || *t2 == *floatsig) {
-            m.getErrorHandler().warning("Coercing expression to compare floating point numbers.", e1.getLoc());
             return floatsig;
         } else if (*t1 == *longsig || *t2 == *longsig) {
-            m.getErrorHandler().warning("Coercing expression to compare long numbers.", e1.getLoc());
             return longsig;
         } else {
-            m.getErrorHandler().warning("Coercing expression to compare short numbers.", e1.getLoc());
             return shortsig;
+        }
+    }
+
+    static void castWarning(ModuleTypeCheck & m, AST::shared_typesig l, AST::Expression & e)
+    {
+        AST::shared_typesig r = e.getSig();
+
+        AST::shared_typesig floatsig = m.getSig(AST::FLOAT);
+        AST::shared_typesig longsig = m.getSig(AST::LONG);
+        AST::shared_typesig shortsig = m.getSig(AST::SHORT);
+
+
+        if (!l || !r || !floatsig || !longsig || !shortsig) {
+            m.getErrorHandler().error("Unable to typecheck expression..", e.getLoc());
+        } else if (!isNumeric(*l) || !isNumeric(*r)) {
+            m.getErrorHandler().error("Attempting to use non-numeric types in cast expr.", e.getLoc());
+        } else if (*l == *r) {
+            /* no warning */
+        } else if (*l == *floatsig) {
+            /* no possible loss of precision */
+        } else if ((*l == *longsig || *l == *shortsig) && *r == *floatsig) {
+            m.getErrorHandler().warning("Casting float to long/short. Possible loss of precision.", e.getLoc());
+        } else if (*l == *shortsig && (*r == *floatsig || *r == *longsig)) {
+            m.getErrorHandler().warning("Casting long/float to short. Possible loss of precision.", e.getLoc());
+        } else if (*l == *longsig && (*r == *longsig || *r == *shortsig)) {
+            /* no possible loss of precision. */
         }
     }
 
@@ -129,6 +154,7 @@ namespace Compiler {
                 } else if (from->getPrim() == AST::STRING || from->getPrim() == AST::UNDEFINED ) {
                     m.getErrorHandler().error("String or undefined type cannot be casted (non-numeric).", e->getLoc());
                 } else {
+                    castWarning(m, argsig, *e);
                     e = boost::shared_ptr<AST::Expression>(new AST::CastExpr(e->getLoc(), e));
                     e->setSig(argsig);
                 }
@@ -214,7 +240,6 @@ namespace Compiler {
             }
             s.ignoreSet();
         } else if (prim_l != prim_r) {
-            mModule.getErrorHandler().warning("Set Statement Target and Expression type do not match.", s.getLoc());
             argCoerce(mModule, convertASTType(prim_l->getPrim()), s.getExpr());
         }
     }
@@ -307,7 +332,11 @@ namespace Compiler {
         e.setSig(mModule.getSig(AST::FLOAT));
     }
     void ExprTypeCheck::visit(AST::LongLit & e) {
-        e.setSig(mModule.getSig(AST::LONG));
+        if (e.getValue() > -(1 << 16) && e.getValue() < (1 << 16)) {
+            e.setSig(mModule.getSig(AST::SHORT));
+        } else {
+            e.setSig(mModule.getSig(AST::LONG));
+        }
     }
 
     int countRequiredArgs(const std::string & s) {
@@ -337,7 +366,8 @@ namespace Compiler {
         Locals & l = mModule.getLocals();
         const Compiler::Extensions * ext = mModule.getContext().getExtensions();
         if (!ext) {
-            throw "No Ext";
+            e.setSig(mModule.getSig(AST::UNDEFINED));
+            return;
         }
         int key = ext->searchKeyword(::Misc::StringUtils::lowerCase(e.getValue()));
         char oldtype;
@@ -361,7 +391,9 @@ namespace Compiler {
             acceptThis(global_expr);
             doReplace(e, global_expr);
         } else if (isNumberStr(e.getValue())) {
-            boost::shared_ptr<AST::Expression> f_expr(new AST::LongLit(e.getLoc(), std::atoi(e.getValue().c_str())));
+            int num = std::atoi(e.getValue().c_str());
+            boost::shared_ptr<AST::Expression> f_expr(new AST::LongLit(e.getLoc(), num));
+
             acceptThis(f_expr);
             doReplace(e, f_expr);
         } else if (mModule.getContext().isJournalId(e.getValue())) {
@@ -376,6 +408,7 @@ namespace Compiler {
         std::string lstr, rstr;
         if (!e.getOffset()->coerceString(rstr)) {
             mModule.getErrorHandler().error("Not a string type", e.getOffset()->getLoc());
+            e.setSig(mModule.getSig(AST::UNDEFINED));
         } else if (!e.isExplicit()) {
             Compiler::ScriptReturn ret;
             Compiler::ScriptArgs args;
@@ -385,6 +418,7 @@ namespace Compiler {
             char type;
             if (!ext) {
                 mModule.getErrorHandler().error("Missing Extensions", e.getBase()->getLoc());
+                e.setSig(mModule.getSig(AST::UNDEFINED));
             } else if (( rkeyword = ext->searchKeyword(::Misc::StringUtils::lowerCase(rstr))) == 0) {
                 boost::shared_ptr<AST::Expression> expr = e.getOffset();
                 acceptThis(expr);
@@ -402,7 +436,6 @@ namespace Compiler {
                 }
                 boost::shared_ptr<AST::TypeSig> f(new AST::TypeInstruction(args, messagebox));
                 e.setSig(f);
-
             } else {
                 boost::shared_ptr<AST::Expression> expr = e.getOffset();
                 acceptThis(expr);
@@ -416,7 +449,7 @@ namespace Compiler {
             bool isMember = false;
             try{
                 member = mModule.getContext().getMemberType(rstr, lstr);
-                isMember = true;
+                isMember = (member.first != ' ');
             } catch (...) {
                 /* ignore */
             }
@@ -457,7 +490,7 @@ namespace Compiler {
                 boost::shared_ptr<AST::TypeSig> f(new AST::TypeInstruction(args, false));
                 e.setSig(f);
                 if (!explicitRef) {
-                    mModule.getErrorHandler().warning("Discaring uneeded explicit reference.", e.getLoc());
+                    mModule.getErrorHandler().warning("Discarding uneeded explicit reference.", e.getLoc());
                     e.setBase(boost::shared_ptr<AST::StringLit>());
                 }
             } else {
@@ -770,7 +803,8 @@ namespace Compiler {
             }
             assert(e->getSig());
         } else {
-            throw "Undefined Expression";
+            throw SourceException();
+            //throw "Undefined Expression";
         }
     }
 }
