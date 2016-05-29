@@ -9,7 +9,7 @@ namespace Compiler
 
     class Context
     {
-            const Extensions *mExtensions;
+            Extensions *mExtensions;
 
         public:
 
@@ -20,12 +20,12 @@ namespace Compiler
             virtual bool canDeclareLocals() const = 0;
             ///< Is the compiler allowed to declare local variables?
 
-            void setExtensions (const Extensions *extensions = 0)
+            void setExtensions (Extensions *extensions = 0)
             {
                 mExtensions = extensions;
             }
 
-            const Extensions *getExtensions() const
+            Extensions *getExtensions() const
             {
                 return mExtensions;
             }

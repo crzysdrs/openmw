@@ -19,6 +19,7 @@ namespace Compiler
         Sound::registerExtensions (extensions);
         Stats::registerExtensions (extensions);
         Transformation::registerExtensions (extensions);
+        NewCompilerExt::registerExtensions (extensions);
 
         if (consoleOnly)
         {
@@ -555,6 +556,31 @@ namespace Compiler
             extensions.registerInstruction ("user2", "", opcodeUser2);
             extensions.registerInstruction ("user3", "", opcodeUser3, opcodeUser3);
             extensions.registerInstruction ("user4", "", opcodeUser4, opcodeUser4);
+        }
+    }
+
+    namespace NewCompilerExt
+    {
+        void registerExtensions (Extensions& extensions)
+        {
+            /* this is intended to be a hack to regularize the use of certain functions/instructions */
+            int op1 = Compiler::Ai::opcodeGetAiPackageDone;
+            int op2 = -1;
+            int opexplicit = 33554432;
+
+            extensions.registerFunction("getsquareroot", 'f', "f", op1, op2, true);
+            extensions.registerFunction("menumode", 's', "", op1, op2, true);
+            extensions.registerFunction("random", 's', "s", op1, op2, true);
+            extensions.registerInstruction("startscript", "c", op1, op2, true);
+            extensions.registerInstruction("stopscript", "c", op1, op2, true);
+            extensions.registerFunction("scriptrunning", 's', "c", op1, op2, true);
+            extensions.registerFunction("getdistance", 'f', "c", op1, opexplicit, true);
+            extensions.registerFunction("getsecondspassed", 'f', "", op1, op2, true);
+
+            extensions.registerInstruction("messagebox", "S/SSSSSSSSSSSSSSSSSSSSSSSSSSS", 0x20000, op2, true);
+            extensions.registerInstruction("disable", "x", op1, opexplicit, true);
+            extensions.registerInstruction("enable", "x", op1, opexplicit, true);
+            extensions.registerFunction("getdisabled", 's', "x", op1, opexplicit, true);
         }
     }
 }

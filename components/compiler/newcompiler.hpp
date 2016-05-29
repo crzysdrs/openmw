@@ -19,6 +19,7 @@ namespace Compiler {
         bool compile_file(const std::string &filename, Output & output);
         bool compile_string(const std::string &input, const std::string& sname, Output &output);
         bool get_locals(std::istream & in, const std::string & sname, Output & output);
+        ~NewCompiler();
     };
 }
 #endif

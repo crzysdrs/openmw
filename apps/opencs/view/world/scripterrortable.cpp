@@ -3,6 +3,7 @@
 #include <QHeaderView>
 
 #include <components/compiler/tokenloc.hpp>
+#include <components/compiler/newcompiler.hpp>
 #include <components/compiler/scanner.hpp>
 #include <components/compiler/fileparser.hpp>
 #include <components/compiler/exception.hpp>
@@ -105,13 +106,21 @@ void CSVWorld::ScriptErrorTable::update (const std::string& source)
 
     try
     {
+        bool newCompiler = CSMPrefs::get()["Scripts"]["newcompiler"].isTrue();
         std::istringstream input (source);
 
-        Compiler::Scanner scanner (*this, input, mContext.getExtensions());
+        if (!newCompiler) {
+            Compiler::Scanner scanner (*this, input, mContext.getExtensions());
 
-        Compiler::FileParser parser (*this, mContext);
+            Compiler::FileParser parser (*this, mContext);
 
-        scanner.scan (parser);
+            scanner.scan (parser);
+        } else {
+            Compiler::NewCompiler compiler(*this, mContext);
+            Compiler::Locals locals;
+            Compiler::Output output(locals);
+            compiler.compile_stream(input, "editor", output);
+        }
     }
     catch (const Compiler::SourceException&)
     {

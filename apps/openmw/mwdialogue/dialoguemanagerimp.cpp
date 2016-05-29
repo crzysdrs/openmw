@@ -49,7 +49,7 @@
 
 namespace MWDialogue
 {
-    DialogueManager::DialogueManager (const Compiler::Extensions& extensions, bool scriptVerbose, Translation::Storage& translationDataStorage, bool newCompiler) :
+    DialogueManager::DialogueManager (Compiler::Extensions& extensions, bool scriptVerbose, Translation::Storage& translationDataStorage, bool newCompiler) :
       mTranslationDataStorage(translationDataStorage)
       , mCompilerContext (MWScript::CompilerContext::Type_Dialogue)
       , mErrorStream(std::cout.rdbuf())

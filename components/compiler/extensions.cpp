@@ -8,7 +8,7 @@
 
 namespace Compiler
 {
-    Extensions::Extensions() : mNextKeywordIndex (-1) {}
+    Extensions::Extensions() : mNextKeywordIndex (-1), mNewCompiler(false) {}
 
     int Extensions::searchKeyword (const std::string& keyword) const
     {
@@ -25,14 +25,18 @@ namespace Compiler
     {
         std::map<int, Function>::const_iterator iter = mFunctions.find (keyword);
 
-        if (iter==mFunctions.end())
+        if (iter==mFunctions.end()) {
             return false;
+        } else if (!mNewCompiler && iter->second.mNewCompiler) {
+            return false;
+        }
 
         if (explicitReference && iter->second.mCodeExplicit==-1)
             explicitReference = false;
 
         returnType = iter->second.mReturn;
         argumentType = iter->second.mArguments;
+
         return true;
     }
 
@@ -41,8 +45,11 @@ namespace Compiler
     {
         std::map<int, Instruction>::const_iterator iter = mInstructions.find (keyword);
 
-        if (iter==mInstructions.end())
+        if (iter==mInstructions.end()) {
             return false;
+        } else if (!mNewCompiler && iter->second.mNewCompiler) {
+            return false;
+        }
 
         if (explicitReference && iter->second.mCodeExplicit==-1)
             explicitReference = false;
@@ -52,7 +59,7 @@ namespace Compiler
     }
 
     void Extensions::registerFunction (const std::string& keyword, ScriptReturn returnType,
-        const ScriptArgs& argumentType, int code, int codeExplicit)
+        const ScriptArgs& argumentType, int code, int codeExplicit, bool newCompiler)
     {
         Function function;
 
@@ -77,12 +84,13 @@ namespace Compiler
         function.mArguments = argumentType;
         function.mCode = code;
         function.mCodeExplicit = codeExplicit;
+        function.mNewCompiler = newCompiler;
 
         mFunctions.insert (std::make_pair (keywordIndex, function));
     }
 
     void Extensions::registerInstruction (const std::string& keyword,
-        const ScriptArgs& argumentType, int code, int codeExplicit)
+        const ScriptArgs& argumentType, int code, int codeExplicit, bool newCompiler)
     {
         Instruction instruction;
 
@@ -106,6 +114,7 @@ namespace Compiler
         instruction.mArguments = argumentType;
         instruction.mCode = code;
         instruction.mCodeExplicit = codeExplicit;
+        instruction.mNewCompiler = newCompiler;
 
         mInstructions.insert (std::make_pair (keywordIndex, instruction));
     }
@@ -117,8 +126,9 @@ namespace Compiler
 
         std::map<int, Function>::const_iterator iter = mFunctions.find (keyword);
 
-        if (iter==mFunctions.end())
+        if (iter==mFunctions.end() || (!mNewCompiler && iter->second.mNewCompiler)) {
             throw std::logic_error ("unknown custom function keyword");
+        }
 
         if (optionalArguments && iter->second.mSegment!=3)
             throw std::logic_error ("functions with optional arguments must be placed into segment 3");
@@ -166,7 +176,7 @@ namespace Compiler
 
         std::map<int, Instruction>::const_iterator iter = mInstructions.find (keyword);
 
-        if (iter==mInstructions.end())
+        if (iter==mInstructions.end() || (!mNewCompiler && iter->second.mNewCompiler))
             throw std::logic_error ("unknown custom instruction keyword");
 
         if (optionalArguments && iter->second.mSegment!=3)

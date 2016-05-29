@@ -146,6 +146,7 @@ void CSMPrefs::State::declare()
         addValue ("Ignore", "Do not report warning").
         addValue (warningsNormal).
         addValue ("Strict", "Promote warning to an error");
+    declareBool ("newcompiler", "Use New Compiler", false);
     declareBool ("toolbar", "Show toolbar", true);
     declareInt ("compile-delay", "Delay between updating of source errors", 100).
         setTooltip ("Delay in milliseconds").

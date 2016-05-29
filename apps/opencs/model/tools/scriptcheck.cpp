@@ -2,6 +2,7 @@
 
 #include <components/compiler/tokenloc.hpp>
 #include <components/compiler/scanner.hpp>
+#include <components/compiler/newcompiler.hpp>
 #include <components/compiler/fileparser.hpp>
 #include <components/compiler/exception.hpp>
 #include <components/compiler/extensions0.hpp>
@@ -104,12 +105,17 @@ void CSMTools::ScriptCheckStage::perform (int stage, CSMDoc::Messages& messages)
 
         mFile = data.getScripts().getRecord (stage).get().mId;
         std::istringstream input (data.getScripts().getRecord (stage).get().mScriptText);
-
-        Compiler::Scanner scanner (*this, input, mContext.getExtensions());
-
-        Compiler::FileParser parser (*this, mContext);
-
-        scanner.scan (parser);
+        bool newCompiler = CSMPrefs::get()["Scripts"]["newcompiler"].isTrue();
+        if (!newCompiler) {
+            Compiler::Scanner scanner (*this, input, mContext.getExtensions());
+            Compiler::FileParser parser (*this, mContext);
+            scanner.scan (parser);
+        } else {
+            Compiler::NewCompiler compiler(*this, mContext);
+            Compiler::Locals locals;
+            Compiler::Output output(locals);
+            compiler.compile_stream(input, "editor", output);
+        }
     }
     catch (const Compiler::SourceException&)
     {

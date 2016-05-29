@@ -8,7 +8,9 @@ namespace Compiler {
     NewCompiler::NewCompiler(ErrorHandler & errors, Context & context)
         : mError(errors), mContext(context), mDriver(errors)
     {
-
+        if (mContext.getExtensions()) {
+            mContext.getExtensions()->setNewCompiler(true);
+        }
     }
 
     bool NewCompiler::compile(AST::Module & mod, Output & output)
@@ -26,6 +28,7 @@ namespace Compiler {
 
         print.visit(mod);
         codegen.visit(mod);
+
         return true;
     }
     bool NewCompiler::compile_stream(std::istream& in, const std::string& sname, Output & output)
@@ -74,5 +77,11 @@ namespace Compiler {
             return false;
         }
         return true;
+    }
+
+    NewCompiler::~NewCompiler() {
+        if (mContext.getExtensions()) {
+            mContext.getExtensions()->setNewCompiler(false);
+        }
     }
 }

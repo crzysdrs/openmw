@@ -546,24 +546,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     mEnvironment.setJournal (new MWDialogue::Journal);
     mEnvironment.setDialogueManager (new MWDialogue::DialogueManager (mExtensions, mVerboseScripts, mTranslationDataStorage, mNewCompiler));
 
-    int op1 = Compiler::Ai::opcodeGetAiPackageDone;
-    int op2 = -1;
-    int opexplicit = 33554432;
-    Compiler::Extensions & e = mExtensions;
-    e.registerFunction("getsquareroot", 'f', "f", op1, op2);
-    e.registerFunction("menumode", 's', "", op1, op2);
-    e.registerFunction("random", 's', "s", op1, op2);
-    e.registerInstruction("startscript", "c", op1, op2);
-    e.registerInstruction("stopscript", "c", op1, op2);
-    e.registerFunction("scriptrunning", 's', "c", op1, op2);
-    e.registerFunction("getdistance", 'f', "c", op1, opexplicit);
-    e.registerFunction("getsecondspassed", 'f', "", op1, op2);
-
-    e.registerInstruction("messagebox", "S/SSSSSSSSSSSSSSSSSSSSSSSSSSS", 0x20000, op2);
-    e.registerInstruction("disable", "x", op1, opexplicit);
-    e.registerInstruction("enable", "x", op1, opexplicit);
-    e.registerFunction("getdisabled", 's', "x", op1, opexplicit);
-
     std::clock_t start;
     double duration;
 

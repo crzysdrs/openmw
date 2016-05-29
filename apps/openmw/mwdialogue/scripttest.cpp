@@ -26,7 +26,7 @@
 namespace
 {
 
-void test(const MWWorld::Ptr& actor, int &compiled, int &total, const Compiler::Extensions* extensions, int warningsMode, bool newCompiler)
+void test(const MWWorld::Ptr& actor, int &compiled, int &total, Compiler::Extensions* extensions, int warningsMode, bool newCompiler)
 {
     MWDialogue::Filter filter(actor, 0, false);
 
@@ -112,7 +112,7 @@ namespace MWDialogue
 namespace ScriptTest
 {
 
-    std::pair<int, int> compileAll(const Compiler::Extensions *extensions, int warningsMode, bool newcompiler)
+    std::pair<int, int> compileAll(Compiler::Extensions *extensions, int warningsMode, bool newcompiler)
     {
         int compiled = 0, total = 0;
         const MWWorld::Store<ESM::NPC>& npcs = MWBase::Environment::get().getWorld()->getStore().get<ESM::NPC>();

@@ -75,7 +75,14 @@ namespace Compiler
     namespace User
     {
         void registerExtensions (Extensions& extensions);
+
     }
+
+    namespace NewCompilerExt
+    {
+        void registerExtensions (Extensions& extensions);
+    }
+
 }
 
 #endif

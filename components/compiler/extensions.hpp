@@ -46,6 +46,7 @@ namespace Compiler
                 int mCode;
                 int mCodeExplicit;
                 int mSegment;
+                bool mNewCompiler;
             };
 
             struct Instruction
@@ -54,16 +55,20 @@ namespace Compiler
                 int mCode;
                 int mCodeExplicit;
                 int mSegment;
+                bool mNewCompiler;
             };
 
             int mNextKeywordIndex;
             std::map<std::string, int> mKeywords;
             std::map<int, Function> mFunctions;
             std::map<int, Instruction> mInstructions;
+            bool mNewCompiler;
 
         public:
 
             Extensions();
+
+            void setNewCompiler(bool newCompiler) { mNewCompiler = newCompiler; };
 
             int searchKeyword (const std::string& keyword) const;
             ///< Return extension keyword code, that is assigned to the string \a keyword.
@@ -84,7 +89,7 @@ namespace Compiler
             /// explicit reference is not available for this instruction.
 
             void registerFunction (const std::string& keyword, ScriptReturn returnType,
-                const ScriptArgs& argumentType, int code, int codeExplicit = -1);
+                const ScriptArgs& argumentType, int code, int codeExplicit = -1, bool newCompiler = false);
             ///< Register a custom function
             /// - keyword must be all lower case.
             /// - keyword must be unique
@@ -92,7 +97,7 @@ namespace Compiler
             /// \note Currently only segment 3 and segment 5 opcodes are supported.
 
             void registerInstruction (const std::string& keyword,
-                const ScriptArgs& argumentType, int code, int codeExplicit = -1);
+                const ScriptArgs& argumentType, int code, int codeExplicit = -1, bool newCompiler = false);
             ///< Register a custom instruction
             /// - keyword must be all lower case.
             /// - keyword must be unique

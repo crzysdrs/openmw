@@ -267,8 +267,9 @@ namespace Compiler
         "if", "endif", "else", "elseif",
         "while", "endwhile",
         "return",
-        "messagebox",
+        "messagebox", /* as is this one */
         "set", "to",
+        /* these following keywords are now part of the extensions */
         "getsquareroot",
         "menumode",
         "random",
