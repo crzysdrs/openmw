@@ -11,6 +11,9 @@
 #include <components/misc/stringops.hpp>
 
 namespace Compiler {
+    std::pair<AST::shared_expr, AST::shared_typesig> ExprTypeCheck::error_pair() {
+        return std::make_pair(AST::shared_expr(), mModule.getSig(AST::UNDEFINED));
+    }
     static std::string formatMessageBox(const std::string & format)
     {
         std::string result("S");
@@ -198,7 +201,7 @@ namespace Compiler {
         }
     }
     ModuleTypeCheck::ModuleTypeCheck(Compiler::Locals & l, Compiler::ErrorHandler & h, Context & c)
-        : mLocals(l), mError(h), mContext(c), mStmt(*this) {}
+        :  mContext(c), mStmt(*this), mLocals(l), mError(h)  {}
 
 
     void ModuleTypeCheck::visit(AST::Module & m) {
@@ -218,13 +221,12 @@ namespace Compiler {
         l.declare(convertASTType(s.getType()), s.getName());
     }
     void StmtTypeCheck::visit(AST::SetStatement & s) {
-        Locals & l = mModule.getLocals();
         std::string str;
         ExprTypeCheck exprIgnoreMethods(mExpr);
         exprIgnoreMethods.setIgnoreCalls();
-        exprIgnoreMethods.acceptThis(s.getTarget());
+        exprIgnoreMethods.acceptArgs(s.getTarget(), NULL);
 
-        mExpr.acceptThis(s.getExpr());
+        mExpr.acceptArgs(s.getExpr(), NULL);
         boost::shared_ptr<AST::TypePrimitive> prim_l = boost::dynamic_pointer_cast<AST::TypePrimitive>(s.getTarget()->getSig());
         boost::shared_ptr<AST::TypePrimitive> prim_r = boost::dynamic_pointer_cast<AST::TypePrimitive>(s.getExpr()->getSig());
         if (!prim_l || prim_l->getPrim() == AST::UNDEFINED) {
@@ -247,7 +249,7 @@ namespace Compiler {
         /* nothing to do */
     }
     void StmtTypeCheck::visit(AST::WhileStatement & w) {
-        mExpr.acceptThis(w.getCond());
+        mExpr.acceptArgs(w.getCond(), NULL);
         AST::TypeSig & cond_type = *w.getCond()->getSig();
 
         if (cond_type != *mModule.getSig(AST::BOOL)) {
@@ -260,7 +262,7 @@ namespace Compiler {
         }
     }
     void StmtTypeCheck::visit(AST::IfStatement & i) {
-        mExpr.acceptThis(i.getCond());
+        mExpr.acceptArgs(i.getCond(), NULL);
         AST::TypeSig & cond_type = *i.getCond()->getSig();
 
         if (cond_type != *mModule.getSig(AST::BOOL) ) {
@@ -281,62 +283,66 @@ namespace Compiler {
         /* type checks just fine */
     }
     void StmtTypeCheck::visit(AST::StatementExpr & e) {
-        mExpr.acceptThis(e.getExpr());
+        mExpr.acceptArgs(e.getExpr(), NULL);
     }
 
     ExprTypeCheck::ExprTypeCheck(ModuleTypeCheck & m)
         : mModule(m), mIgnoreFunctions(false), mIgnoreInstructions(false), mMutable(true) {}
 
-    void ExprTypeCheck::visit(AST::CastExpr & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::CastExpr & e, ExprArgType a) {
         /* cast exprs must be set to their typesig, since that is how they know what to cast to */
         assert(e.getSig());
+        return std::make_pair(AST::shared_expr(), e.getSig());
     }
-    void ExprTypeCheck::visit(AST::GlobalVar & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::GlobalVar & e, ExprArgType a) {
         if (!e.getSig()) {
             char global;
             if ((global = mModule.getContext().getGlobalType(e.getGlobal())) != ' ') {
-                e.setSig(convertOldType(mModule, global));
+                return std::make_pair(AST::shared_expr(), convertOldType(mModule, global));
             } else {
-                assert(0); /* not a global */
+                mModule.getErrorHandler().error("Internal Error: Global Var is not found.", e.getLoc());
+                return error_pair();
             }
         }
+        return std::make_pair(AST::shared_expr(), e.getSig());
     }
 
-    void ExprTypeCheck::visit(AST::LocalVar & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::LocalVar & e, ExprArgType a) {
         if (!e.getSig()) {
             Locals & l = mModule.getLocals();
             char oldtype;
             if ((oldtype = l.getType(::Misc::StringUtils::lowerCase(e.getLocal()))) != ' ') {
-                e.setSig(convertOldType(mModule, oldtype));
+                return std::make_pair(AST::shared_expr(), convertOldType(mModule, oldtype));
             } else {
-                assert(0); /* not a local */
+                mModule.getErrorHandler().error("Internal Error: Global Var is not found.", e.getLoc());
+                return error_pair();
             }
         }
+        return std::make_pair(AST::shared_expr(), e.getSig());
     }
 
-    void ExprTypeCheck::visit(AST::Journal & e) {
-        if (!e.getSig()) {
-            e.setSig(mModule.getSig(AST::SHORT));
-        }
+    ExprReturnType ExprTypeCheck::visit(AST::Journal & e, ExprArgType a) {
+        return std::make_pair(boost::shared_ptr<AST::Expression>(), mModule.getSig(AST::SHORT));
     }
-    void ExprTypeCheck::visit(AST::MemberVar & e) {
-        if (!e.getSig()) {
-            std::pair<char, bool> member = mModule.getContext().getMemberType(e.getName(), e.getModule());
-            boost::shared_ptr<AST::TypePrimitive> type(new AST::TypePrimitive(convertCharType(member.first)));
-            AST::shared_typesig sig = boost::dynamic_pointer_cast<AST::TypeSig>(type);
-            type->setGlobal();
-            e.setSig(sig);
-        }
+    ExprReturnType ExprTypeCheck::visit(AST::MemberVar & e, ExprArgType a) {
+        std::pair<char, bool> member = mModule.getContext().getMemberType(e.getName(), e.getModule());
+        boost::shared_ptr<AST::TypePrimitive> type(new AST::TypePrimitive(convertCharType(member.first)));
+        AST::shared_typesig sig = boost::dynamic_pointer_cast<AST::TypeSig>(type);
+        type->setGlobal();
+        return std::make_pair(boost::shared_ptr<AST::Expression>(), sig);
     }
-    void ExprTypeCheck::visit(AST::FloatLit & e) {
-        e.setSig(mModule.getSig(AST::FLOAT));
+    ExprReturnType ExprTypeCheck::visit(AST::FloatLit & e, ExprArgType a) {
+        return std::make_pair(boost::shared_ptr<AST::Expression>(), mModule.getSig(AST::FLOAT));
     }
-    void ExprTypeCheck::visit(AST::LongLit & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::LongLit & e, ExprArgType a) {
+        AST::shared_typesig sig;
         if (e.getValue() > -(1 << 16) && e.getValue() < (1 << 16)) {
-            e.setSig(mModule.getSig(AST::SHORT));
+            sig = mModule.getSig(AST::SHORT);
         } else {
-            e.setSig(mModule.getSig(AST::LONG));
+            sig = mModule.getSig(AST::LONG);
         }
+
+        return std::make_pair(boost::shared_ptr<AST::Expression>(), sig);
     }
 
     int countRequiredArgs(const std::string & s) {
@@ -350,7 +356,7 @@ namespace Compiler {
         }
         return count;
     }
-
+#if 0
     void ExprTypeCheck::doReplace(AST::Expression & e, boost::shared_ptr<AST::Expression> replace) {
         if (mMutable) {
             e.setReplace(replace);
@@ -358,8 +364,8 @@ namespace Compiler {
             e.setSig(replace->getSig());
         }
     }
-
-    void ExprTypeCheck::visit(AST::StringLit & e) {
+#endif
+    ExprReturnType ExprTypeCheck::visit(AST::StringLit & e, ExprArgType a) {
         Compiler::ScriptReturn ret;
         Compiler::ScriptArgs args;
         bool explicitRef = false;
@@ -367,83 +373,76 @@ namespace Compiler {
         const Compiler::Extensions * ext = mModule.getContext().getExtensions();
         if (!ext) {
             e.setSig(mModule.getSig(AST::UNDEFINED));
-            return;
+            return error_pair();
         }
         int key = ext->searchKeyword(::Misc::StringUtils::lowerCase(e.getValue()));
         char oldtype;
         char global;
         if (key != 0 && !mIgnoreFunctions && ext->isFunction(key, ret, args, explicitRef)) {
             boost::shared_ptr<AST::TypeSig> f(new AST::TypeFunction(args, ret));
-            e.setSig(f);
+            return std::make_pair(AST::shared_expr(), f);
         } else if (key != 0 && !mIgnoreInstructions && ext->isInstruction(key, args, explicitRef)) {
             bool messagebox = false;
             if (::Misc::StringUtils::lowerCase(e.getValue()) == "messagebox") {
                 messagebox = true;
             }
             boost::shared_ptr<AST::TypeSig> f(new AST::TypeInstruction(args, messagebox));
-            e.setSig(f);
+            return std::make_pair(AST::shared_expr(), f);
         } else if((oldtype = l.getType(::Misc::StringUtils::lowerCase(e.getValue()))) != ' ') {
             boost::shared_ptr<AST::Expression> local_expr(new AST::LocalVar(e.getLoc(), ::Misc::StringUtils::lowerCase(e.getValue())));
-            acceptThis(local_expr);
-            doReplace(e, local_expr);
+            return acceptArgs(local_expr, NULL);
         } else if ((global = mModule.getContext().getGlobalType(e.getValue())) != ' ') {
             boost::shared_ptr<AST::Expression> global_expr(new AST::GlobalVar(e.getLoc(), ::Misc::StringUtils::lowerCase(e.getValue())));
-            acceptThis(global_expr);
-            doReplace(e, global_expr);
+            return acceptArgs(global_expr, NULL);
         } else if (isNumberStr(e.getValue())) {
             int num = std::atoi(e.getValue().c_str());
             boost::shared_ptr<AST::Expression> f_expr(new AST::LongLit(e.getLoc(), num));
-
-            acceptThis(f_expr);
-            doReplace(e, f_expr);
+            return acceptArgs(f_expr, NULL);
         } else if (mModule.getContext().isJournalId(e.getValue())) {
             boost::shared_ptr<AST::Expression> f_expr(new AST::Journal(e.getLoc(), e.getValue()));
-            acceptThis(f_expr);
-            doReplace(e, f_expr);
+            return acceptArgs(f_expr, NULL);
         } else {
-            e.setSig(mModule.getSig(AST::STRING));
+            return std::make_pair(AST::shared_expr(), mModule.getSig(AST::STRING));
         }
     }
-    void ExprTypeCheck::visit(AST::RefExpr & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::RefExpr & e, ExprArgType a) {
         std::string lstr, rstr;
         if (!e.getOffset()->coerceString(rstr)) {
             mModule.getErrorHandler().error("Not a string type", e.getOffset()->getLoc());
-            e.setSig(mModule.getSig(AST::UNDEFINED));
+            return error_pair();
         } else if (!e.isExplicit()) {
             Compiler::ScriptReturn ret;
             Compiler::ScriptArgs args;
             bool explicitRef = false;
             const Compiler::Extensions * ext = mModule.getContext().getExtensions();
             int rkeyword = 0;
-            char type;
             if (!ext) {
                 mModule.getErrorHandler().error("Missing Extensions", e.getBase()->getLoc());
-                e.setSig(mModule.getSig(AST::UNDEFINED));
+                return error_pair();
             } else if (( rkeyword = ext->searchKeyword(::Misc::StringUtils::lowerCase(rstr))) == 0) {
                 boost::shared_ptr<AST::Expression> expr = e.getOffset();
-                acceptThis(expr);
-                doReplace(e, expr);
+                return acceptArgs(expr, NULL);
             } else if (!mIgnoreFunctions && ext->isFunction(rkeyword, ret, args, explicitRef) ) {
                 boost::shared_ptr<AST::TypeSig> f(new AST::TypeFunction(args, ret));
-                e.setSig(f);
+                return std::make_pair(AST::shared_expr(), f);
             } else if (!mIgnoreInstructions && ext->isInstruction(rkeyword, args, explicitRef)) {
                 bool messagebox = false;
                 if (::Misc::StringUtils::lowerCase(rstr) == "messagebox") {
                     messagebox = true;
                     if (e.getSig()) {
-                        return; /* don't overwrite existing messagebox sig */
+                        /* don't overwrite existing messagebox sig */
+                        return std::make_pair(boost::shared_ptr<AST::Expression>(), e.getSig());
                     }
                 }
                 boost::shared_ptr<AST::TypeSig> f(new AST::TypeInstruction(args, messagebox));
-                e.setSig(f);
+                return std::make_pair(AST::shared_expr(), f);
             } else {
                 boost::shared_ptr<AST::Expression> expr = e.getOffset();
-                acceptThis(expr);
-                doReplace(e, expr);
+                return acceptArgs(expr, NULL);
             }
         } else if (!e.getBase()->coerceString(lstr)) {
             mModule.getErrorHandler().error("Not a string type", e.getOffset()->getLoc());
-            e.setSig(mModule.getSig(AST::UNDEFINED));
+            return error_pair();
         } else if(e.getOp() == AST::DOT) {
             std::pair<char, bool> member;
             bool isMember = false;
@@ -455,17 +454,15 @@ namespace Compiler {
             }
             if (isMember) {
                 boost::shared_ptr<AST::Expression> m_expr(new AST::MemberVar(e.getLoc(), lstr, rstr));
-                acceptThis(m_expr);
-                doReplace(e, m_expr);
+                return acceptArgs(m_expr, NULL);
             } else if(isNumberStr(lstr) && isNumberStr(rstr)) {
                 /* this is actually a floating point value */
                 std::string new_float_str = lstr + "." + rstr;
                 boost::shared_ptr<AST::Expression> f_expr(new AST::FloatLit(e.getLoc(), std::atof(new_float_str.c_str())));
-                acceptThis(f_expr);
-                doReplace(e, f_expr);
+                return acceptArgs(f_expr, NULL);
             } else {
-                e.setSig(mModule.getSig(AST::UNDEFINED));
                 mModule.getErrorHandler().error("Invalid Member Reference.", e.getBase()->getLoc());
+                return std::make_pair(AST::shared_expr(), mModule.getSig(AST::UNDEFINED));
             }
         } else if (e.getOp() == AST::ARROW) {
             Compiler::ScriptReturn ret;
@@ -475,67 +472,64 @@ namespace Compiler {
             int rkeyword = 0;
             if (!ext) {
                 mModule.getErrorHandler().error("Missing Extensions", e.getBase()->getLoc());
+                return error_pair();
             } else if (!mModule.getContext().isId(lstr)) {
                 mModule.getErrorHandler().error("Unknown Id of LHS of ->", e.getBase()->getLoc());
+                return error_pair();
             } else if (( rkeyword = ext->searchKeyword(::Misc::StringUtils::lowerCase(rstr))) == 0) {
                 mModule.getErrorHandler().error("Unknown Keyword RHS of ->", e.getOffset()->getLoc());
+                return error_pair();
             } else if (ext->isFunction(rkeyword, ret, args, explicitRef)) {
                 boost::shared_ptr<AST::TypeSig> f(new AST::TypeFunction(args, ret));
-                e.setSig(f);
                 if (!explicitRef) {
-                    mModule.getErrorHandler().warning("Discarding uneeded explicit reference.", e.getLoc());
+                    mModule.getErrorHandler().warning("Discarding unneeded explicit reference.", e.getLoc());
                     e.setBase(boost::shared_ptr<AST::StringLit>());
                 }
+                return std::make_pair(AST::shared_expr(), f);
             } else if (ext->isInstruction(rkeyword, args, explicitRef)) {
                 boost::shared_ptr<AST::TypeSig> f(new AST::TypeInstruction(args, false));
-                e.setSig(f);
                 if (!explicitRef) {
-                    mModule.getErrorHandler().warning("Discarding uneeded explicit reference.", e.getLoc());
+                    mModule.getErrorHandler().warning("Discarding unneeded explicit reference.", e.getLoc());
                     e.setBase(boost::shared_ptr<AST::StringLit>());
                 }
+                return std::make_pair(AST::shared_expr(), f);
             } else {
                 mModule.getErrorHandler().error("Unknown Reference Type.", e.getLoc());
-                e.setSig(mModule.getSig(AST::UNDEFINED));
+                return error_pair();
             }
         } else {
             mModule.getErrorHandler().error("Unhandled Expression Reference.", e.getLoc());
-            e.setSig(mModule.getSig(AST::UNDEFINED));
+            return error_pair();
         }
     }
-    void ExprTypeCheck::visit(AST::MathExpr & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::MathExpr & e, ExprArgType a) {
         ExprTypeCheck noInstr(*this);
         noInstr.setIgnoreInstructions();
-        noInstr.acceptThis(e.getLeft());
-        noInstr.acceptThis(e.getRight());
-        AST::TypeSig & ltype = *e.getLeft()->getSig();
-        AST::TypeSig & rtype = *e.getRight()->getSig();
-
+        noInstr.acceptArgs(e.getLeft(), NULL);
+        noInstr.acceptArgs(e.getRight(), NULL);
         AST::shared_typesig result_type = binCoerce(mModule, *e.getLeft(), *e.getRight());
-        e.setSig(result_type);
+        return std::make_pair(AST::shared_expr(), result_type);
     }
-    void ExprTypeCheck::visit(AST::LogicExpr & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::LogicExpr & e, ExprArgType a) {
         ExprTypeCheck noInstr(*this);
         noInstr.setIgnoreInstructions();
-        noInstr.acceptThis(e.getLeft());
-        noInstr.acceptThis(e.getRight());
-        AST::TypeSig & ltype = *e.getLeft()->getSig();
-        AST::TypeSig & rtype = *e.getRight()->getSig();
-
+        noInstr.acceptArgs(e.getLeft(), NULL);
+        noInstr.acceptArgs(e.getRight(), NULL);
         AST::shared_typesig result_type = binCoerce(mModule, *e.getLeft(), *e.getRight());
 
-        e.setSig(mModule.getSig(AST::BOOL));
+        return std::make_pair(AST::shared_expr(), mModule.getSig(AST::BOOL));
     }
-    void ExprTypeCheck::visit(AST::NegateExpr & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::NegateExpr & e, ExprArgType a) {
         ExprTypeCheck noInstr(*this);
         noInstr.setIgnoreInstructions();
-        noInstr.acceptThis(e.getExpr());
+        noInstr.acceptArgs(e.getExpr(), NULL);
         AST::TypeSig & t = *e.getExpr()->getSig();
 
         if (!isNumeric(t)) {
             mModule.getErrorHandler().error("Negation of non-numeric type.", e.getLoc());
         }
 
-        e.setSig(e.getExpr()->getSig());
+        return std::make_pair(AST::shared_expr(), e.getExpr()->getSig());
     }
 
     boost::shared_ptr<AST::Expression> breakExprItems(boost::shared_ptr<AST::Expression> expr)
@@ -554,7 +548,7 @@ namespace Compiler {
      {
          ExprTypeCheck immute_expr(*this);
          immute_expr.setImmutable();
-         immute_expr.acceptThis(*cur_expr);
+         immute_expr.acceptArgs(*cur_expr, NULL);
          TokenLoc loc = (*cur_expr)->getLoc();
          AST::shared_typesig exprsig = (*cur_expr)->getSig();
 
@@ -589,7 +583,7 @@ namespace Compiler {
              } else {
                  ignoremethods.setIgnoreCalls();
                  /* failed to process, re-evaluate as non-method call */
-                 ignoremethods.acceptThis(*cur_expr);
+                 ignoremethods.acceptArgs(*cur_expr, NULL);
 
                  loc = (*cur_expr)->getLoc();
                  exprsig = (*cur_expr)->getSig();
@@ -661,7 +655,7 @@ namespace Compiler {
             case 'l':
             case 's':
                 {
-                    acceptThis(*cur_expr);
+                    acceptArgs(*cur_expr, NULL);
                     AST::shared_typesig exprsig = (*cur_expr)->getSig();
                     boost::shared_ptr<AST::TypeArgs> argtypesig = boost::dynamic_pointer_cast<AST::TypeArgs>(exprsig);
                     boost::shared_ptr<AST::Expression> e = *cur_expr;
@@ -669,7 +663,7 @@ namespace Compiler {
                         boost::shared_ptr<AST::Expression> fn_e = processFn(cur_expr, end_expr, cur_arg, end_arg, false, optional);
                         if (fn_e) {
                             e = fn_e;
-                            acceptThis(fn_e);
+                            acceptArgs(fn_e, NULL);
                         }
                     } else {
                         cur_expr++;
@@ -715,22 +709,22 @@ namespace Compiler {
     }
 
 
-    void ExprTypeCheck::visit(AST::ExprItems & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::ExprItems & e, ExprArgType a) {
         expr_iter cur_expr = e.getItems().begin();
         expr_iter end_expr = e.getItems().end();
         arg_iter ignore;
         boost::shared_ptr<AST::Expression> newe = processFn(cur_expr, end_expr, ignore, ignore, true, false);
         if (newe) {
-            acceptThis(newe);
-            doReplace(e, newe);
+            ExprReturnType r = acceptArgs(newe, NULL);
+            return std::make_pair(newe, r.second);
         } else {
             mModule.getErrorHandler().error("Unable to parse expression.", (*cur_expr)->getLoc());
-            e.setSig(mModule.getSig(AST::UNDEFINED));
+            return std::make_pair(AST::shared_expr(), mModule.getSig(AST::UNDEFINED));
         }
     }
 
-    void ExprTypeCheck::visit(AST::CallExpr & e) {
-        acceptThis(e.getFn());
+    ExprReturnType ExprTypeCheck::visit(AST::CallExpr & e, ExprArgType a) {
+        acceptArgs(e.getFn(), NULL);
         std::vector<boost::shared_ptr<AST::Expression> > & items = e.getArgs()->getItems();
         AST::shared_typesig fn_generic = e.getFn()->getSig();
         boost::shared_ptr<AST::TypeFunction> fnsig = boost::dynamic_pointer_cast<AST::TypeFunction>(fn_generic);
@@ -738,16 +732,14 @@ namespace Compiler {
 
         if (!fnargs && items.size() == 0) {
             /* this is not a CallExpr */
-            doReplace(e, e.getFn());
-            return;
+            return std::make_pair(e.getFn(), boost::shared_ptr<AST::TypeSig>());
         } else if (!fnargs) {
             if (mIgnoreInstructions) {
                 mModule.getErrorHandler().error("Invalid context for instruction call.", e.getLoc());
             } else {
                 mModule.getErrorHandler().error("Unknown instruction/function call", e.getLoc());
             }
-            e.setSig(mModule.getSig(AST::UNDEFINED));
-            return;
+            return std::make_pair(AST::shared_expr(), mModule.getSig(AST::UNDEFINED));
         }
         std::vector<boost::shared_ptr<AST::Expression> > final_items;
         arg_iter arg_it = fnargs->getArgs().begin();
@@ -796,7 +788,7 @@ namespace Compiler {
                 if (entered_optionals) {
                     optionals++;
                 }
-                acceptThis(*it);
+                acceptArgs(*it, NULL);
                 argCoerce(mModule, *arg_it, (*it));
                 final_items.push_back(*it);
                 break;
@@ -832,17 +824,20 @@ namespace Compiler {
         }
         e.getArgs()->getItems() = final_items;
         fnargs->setOptionals(optionals);
+        boost::shared_ptr<AST::TypeSig> sig;
         if (fnsig) {
-            e.setSig(convertOldType(mModule, (*fnsig).getRet()));
+            sig = convertOldType(mModule, (*fnsig).getRet());
         } else {
-            e.setSig(mModule.getSig(AST::UNDEFINED));
+            sig = mModule.getSig(AST::UNDEFINED);
         }
+
+        return std::make_pair(AST::shared_expr(), sig);
     }
 
-    void ExprTypeCheck::visit(AST::CallArgs & e) {
+    ExprReturnType ExprTypeCheck::visit(AST::CallArgs & e, ExprArgType a) {
         assert(0); /* should never be directly invoked */
     }
-
+#if 0
     void ExprTypeCheck::acceptThis(boost::shared_ptr<AST::Expression> & e)
     {
         if (e) {
@@ -857,4 +852,6 @@ namespace Compiler {
             //throw "Undefined Expression";
         }
     }
+#endif
+
 }

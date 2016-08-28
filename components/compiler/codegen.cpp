@@ -116,7 +116,6 @@ namespace Compiler {
 
     void StmtCodegen::visit(AST::IfStatement & i) {
         mExprRHS.acceptThis(i.getCond());
-        AST::TypeSig & cond_type = *i.getCond()->getSig();
         std::pair<int, int> jmp_to_false;
         jmp_to_false.first = mModule.getOutput().getCode().size();
         Generator::jumpOnZero(mModule.getOutput().getCode(), 1);

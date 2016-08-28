@@ -41,4 +41,69 @@ namespace Compiler {
         virtual void visit(AST::Module & m) = 0;
     };
 }
+
+namespace Compiler {
+    template<typename Visitor, typename VisitablePtr, typename ResultType, typename ArgType>
+    class ValueGetter : public Visitor {
+    public:
+        void Return(ResultType value_) {
+            value = value_;
+        }
+        ArgType getArg() {
+            return arg;
+        }
+        virtual ResultType acceptArgs(boost::shared_ptr<VisitablePtr> & n, ArgType arg) {
+            this->arg = arg;
+            n->accept(*this);
+            return value;
+        }
+    private:
+        ArgType arg;
+        ResultType value;
+    };
+
+#define ARGVISITOR(_type_) \
+    virtual void visit(_type_ t) { \
+        this->Return(visit(t, this->getArg())); \
+    };\
+    virtual R visit(_type_ t, A arg) = 0
+
+    template <typename R, typename A>
+    class ExprVisitorArgs : public ValueGetter<ExprVisitor, AST::Expression, R, A> {
+    public:
+        ARGVISITOR(AST::FloatLit &);
+        ARGVISITOR(AST::LongLit &);
+        ARGVISITOR(AST::StringLit &);
+        ARGVISITOR(AST::RefExpr &);
+        ARGVISITOR(AST::MathExpr &);
+        ARGVISITOR(AST::LogicExpr &);
+        ARGVISITOR(AST::NegateExpr &);
+        ARGVISITOR(AST::ExprItems &);
+
+        ARGVISITOR(AST::CastExpr &);
+        ARGVISITOR(AST::CallExpr &);
+        ARGVISITOR(AST::CallArgs &);
+        ARGVISITOR(AST::GlobalVar &);
+        ARGVISITOR(AST::LocalVar &);
+        ARGVISITOR(AST::MemberVar &);
+        ARGVISITOR(AST::Journal &);
+    };
+    template <typename R, typename A>
+    class StmtVisitorArgs : public ValueGetter<StmtVisitor, AST::Expression &, R, A> {
+    public:
+
+        ARGVISITOR(AST::TypeDecl &);
+        ARGVISITOR(AST::SetStatement &);
+        ARGVISITOR(AST::WhileStatement &);
+        ARGVISITOR(AST::IfStatement &);
+        ARGVISITOR(AST::ReturnStatement &);
+        ARGVISITOR(AST::StatementExpr &);
+        ARGVISITOR(AST::NoOp &);
+    };
+    template <typename R, typename A>
+    class ModuleVisitorArgs : public ValueGetter<ModuleVisitor, AST::Expression &, R, A> {
+    public:
+        ARGVISITOR(AST::Module &);
+    };
+}
 #endif

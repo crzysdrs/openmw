@@ -393,7 +393,7 @@ namespace AST
             const Compiler::TokenLoc & t,
             boost::shared_ptr<Expression> cond,
             std::vector<boost::shared_ptr<Statement> >& branch_true)
-            : Statement(t), mCondition(cond), mIfCase(branch_true), mIsElseIf(false), mElseCase() {};
+            : Statement(t), mCondition(cond), mIfCase(branch_true),  mElseCase(), mIsElseIf(false) {};
         IfStatement(
             const Compiler::TokenLoc & t,
             boost::shared_ptr<Expression> cond,
@@ -445,6 +445,7 @@ namespace AST
     };
 
     typedef boost::shared_ptr<AST::TypeSig> shared_typesig;
+    typedef boost::shared_ptr<AST::Expression> shared_expr;
 
     char convertASTType(const AST::Type & t);
     char convertType(const AST::TypeSig & t);

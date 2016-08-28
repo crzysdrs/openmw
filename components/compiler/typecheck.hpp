@@ -13,12 +13,14 @@ namespace Compiler
     typedef std::string::const_iterator arg_iter;
     typedef std::vector<boost::shared_ptr<AST::Expression> >::iterator expr_iter;
     class ModuleTypeCheck;
+    typedef void * ExprArgType;
+    typedef std::pair<boost::shared_ptr<AST::Expression>, boost::shared_ptr<AST::TypeSig> > ExprReturnType;
 
-    class ExprTypeCheck : public Compiler::ExprVisitor
+    class ExprTypeCheck : public Compiler::ExprVisitorArgs<ExprReturnType, ExprArgType>
     {
         ModuleTypeCheck & mModule;
-        bool mIgnoreInstructions;
         bool mIgnoreFunctions;
+        bool mIgnoreInstructions;
         bool mMutable;
     public:
         ExprTypeCheck(ModuleTypeCheck & m);
@@ -28,7 +30,6 @@ namespace Compiler
         boost::shared_ptr<AST::Expression> processFn(
             expr_iter & cur_expr, expr_iter & end_expr,
             arg_iter & cur_arg, arg_iter & end_arg, bool toplevel, int optional);
-        void doReplace(AST::Expression & e, boost::shared_ptr<AST::Expression> replace);
         ExprTypeCheck(const ExprTypeCheck & old)
             : mModule(old.mModule), mIgnoreFunctions(old.mIgnoreFunctions), mIgnoreInstructions(old.mIgnoreInstructions), mMutable(old.mMutable) {
         };
@@ -45,22 +46,35 @@ namespace Compiler
         void setImmutable() {
             mMutable = false;
         };
-        virtual void visit(AST::FloatLit & e);
-        virtual void visit(AST::LongLit & e);
-        virtual void visit(AST::StringLit & e);
-        virtual void visit(AST::RefExpr & e);
-        virtual void visit(AST::MathExpr & e);
-        virtual void visit(AST::LogicExpr & e);
-        virtual void visit(AST::NegateExpr & e);
-        virtual void visit(AST::ExprItems & e);
-        virtual void visit(AST::CastExpr & f);
-        virtual void visit(AST::GlobalVar & e);
-        virtual void visit(AST::LocalVar & e);
-        virtual void visit(AST::MemberVar & e);
-        virtual void visit(AST::Journal & e);
-        virtual void visit(AST::CallExpr & f);
-        virtual void visit(AST::CallArgs & f);
-        virtual void acceptThis(boost::shared_ptr<AST::Expression> & e);
+        virtual ExprReturnType visit(AST::FloatLit & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::LongLit & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::StringLit & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::RefExpr & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::MathExpr & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::LogicExpr & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::NegateExpr & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::ExprItems & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::CastExpr & f, ExprArgType a);
+        virtual ExprReturnType visit(AST::GlobalVar & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::LocalVar & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::MemberVar & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::Journal & e, ExprArgType a);
+        virtual ExprReturnType visit(AST::CallExpr & f, ExprArgType a);
+        virtual ExprReturnType visit(AST::CallArgs & f, ExprArgType a);
+        ExprReturnType error_pair();
+
+        virtual ExprReturnType acceptArgs(boost::shared_ptr<AST::Expression> & n, ExprArgType arg) {
+            ExprReturnType ret = ValueGetter::acceptArgs(n, arg);
+            if (mMutable && ret.first) {
+                n = ret.first;
+            }
+            ret.first = n;
+            if (ret.second) {
+                n->setSig(ret.second);
+            }
+            assert(n->getSig());
+            return ret;
+        }
     };
 
     class StmtTypeCheck : public Compiler::StmtVisitor
