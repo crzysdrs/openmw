@@ -761,13 +761,13 @@ namespace Compiler {
                 entered_optionals = true;
                 arg_it++;
             }
-            if (entered_optionals) {
-                optionals++;
-            }
             switch(*arg_it) {
             case 'c':
             case 'S':
                 {
+                    if (entered_optionals) {
+                        optionals++;
+                    }
                     std::string val;
                     if (!(*it)->coerceString(val)) {
                         mModule.getErrorHandler().error("Argument is not string", (*it)->getLoc());
@@ -787,11 +787,15 @@ namespace Compiler {
             case 'X':
             case 'j':
             case 'z':
-                entered_optionals = true;
                 mModule.getErrorHandler().warning("Extra Argument is ignored.", (*it)->getLoc());
                 (*it)->setSig(mModule.getSig(AST::UNDEFINED));
                 break;
-            default:
+            case 'f':
+            case 's':
+            case 'l':
+                if (entered_optionals) {
+                    optionals++;
+                }
                 acceptThis(*it);
                 argCoerce(mModule, *arg_it, (*it));
                 final_items.push_back(*it);
