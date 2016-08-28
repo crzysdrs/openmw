@@ -560,6 +560,7 @@ namespace Compiler {
 
          boost::shared_ptr<AST::TypeArgs> argtypesig = boost::dynamic_pointer_cast<AST::TypeArgs>(exprsig);
          boost::shared_ptr<AST::Expression> new_expr;
+         bool remainder = false;
          if (argtypesig) {
              expr_iter sub_expr_cur = cur_expr + 1;
              expr_iter sub_expr_end = end_expr;
@@ -583,19 +584,24 @@ namespace Compiler {
                  } else {
                      /* we have a remainder at the top level */
                      cur_expr = sub_expr_cur;
+                     remainder = true;
                  }
              } else {
                  ignoremethods.setIgnoreCalls();
-             }
-             /* failed to process (or have remainder at toplevel), re-evaluate as non-method call */
-             ignoremethods.acceptThis(*cur_expr);
+                 /* failed to process, re-evaluate as non-method call */
+                 ignoremethods.acceptThis(*cur_expr);
 
-             loc = (*cur_expr)->getLoc();
-             exprsig = (*cur_expr)->getSig();
+                 loc = (*cur_expr)->getLoc();
+                 exprsig = (*cur_expr)->getSig();
+             }
          }
 
-         if (isNumeric(*exprsig)) {
-             if (!new_expr) {
+         if (cur_expr == end_expr) {
+             return new_expr;
+         }
+         boost::shared_ptr<AST::NegateExpr> isneg = boost::dynamic_pointer_cast<AST::NegateExpr>(*cur_expr);
+         if ((remainder && isneg) || !remainder) {
+             if (!remainder) {
                  new_expr = *cur_expr;
                  cur_expr++;
              }
@@ -611,12 +617,11 @@ namespace Compiler {
                          boost::shared_ptr<AST::Expression> big_e(new AST::MathExpr(loc, AST::MINUS, new_expr, sub_expr));
                          new_expr = big_e;
                      } else {
-                         mModule.getErrorHandler().error("Not a valid sub-expression.", loc);
-                         return boost::shared_ptr<AST::Expression>();
+                         return new_expr;
                      }
                  } else {
-                     mModule.getErrorHandler().error("Not a negation sub-expression.", loc);
-                     return boost::shared_ptr<AST::Expression>();
+                     /* TODO: Decide what to do with extra args that aren't part of a call */
+                     return new_expr;
                  }
                  cur_expr++;
              }
@@ -678,7 +683,7 @@ namespace Compiler {
             case 'X':
             case 'z':
                 /* ignored args */
-                mModule.getErrorHandler().warning("Ignored argument in function call", (*cur_expr)->getLoc());
+                exprs.push_back(*cur_expr);
                 cur_expr++;
                 break;
             case 'j':
@@ -706,11 +711,7 @@ namespace Compiler {
             }
         }
 
-        if (cur_arg == end_arg || optional) {
-            return boost::shared_ptr<AST::CallArgs>(new AST::CallArgs(loc, exprs));
-        } else {
-            return boost::shared_ptr<AST::CallArgs>();
-        }
+        return boost::shared_ptr<AST::CallArgs>(new AST::CallArgs(loc, exprs));
     }
 
 
@@ -735,17 +736,30 @@ namespace Compiler {
         boost::shared_ptr<AST::TypeFunction> fnsig = boost::dynamic_pointer_cast<AST::TypeFunction>(fn_generic);
         boost::shared_ptr<AST::TypeArgs> fnargs = boost::dynamic_pointer_cast<AST::TypeArgs>(fn_generic);
 
+        if (!fnargs && items.size() == 0) {
+            /* this is not a CallExpr */
+            doReplace(e, e.getFn());
+            return;
+        } else if (!fnargs) {
+            if (mIgnoreInstructions) {
+                mModule.getErrorHandler().error("Invalid context for instruction call.", e.getLoc());
+            } else {
+                mModule.getErrorHandler().error("Unknown instruction/function call", e.getLoc());
+            }
+            e.setSig(mModule.getSig(AST::UNDEFINED));
+            return;
+        }
+        std::vector<boost::shared_ptr<AST::Expression> > final_items;
         arg_iter arg_it = fnargs->getArgs().begin();
         int optionals = 0;
         bool entered_optionals = false;
-        for(std::vector<boost::shared_ptr<AST::Expression> >::iterator it = items.begin();
-            it != items.end();
-            ++it, ++arg_it) {
-            while (*arg_it == '/' || *arg_it == 'j') {
+        expr_iter it = items.begin();
+        for(;
+            it != items.end() && arg_it != fnargs->getArgs().end();
+            it++, arg_it++) {
+            if (*arg_it == '/') {
+                entered_optionals = true;
                 arg_it++;
-                if (*arg_it == '/') {
-                    entered_optionals = true;
-                }
             }
             if (entered_optionals) {
                 optionals++;
@@ -767,20 +781,52 @@ namespace Compiler {
                         *it = newlit;
                     }
                 }
+                final_items.push_back(*it);
                 break;
             case 'x':
             case 'X':
-                mModule.getErrorHandler().error("Argument is ignored.", (*it)->getLoc());
-                (*it)->setSig(mModule.getSig(AST::UNDEFINED));
-                break;
             case 'j':
+            case 'z':
+                entered_optionals = true;
+                mModule.getErrorHandler().warning("Extra Argument is ignored.", (*it)->getLoc());
+                (*it)->setSig(mModule.getSig(AST::UNDEFINED));
                 break;
             default:
                 acceptThis(*it);
                 argCoerce(mModule, *arg_it, (*it));
+                final_items.push_back(*it);
                 break;
             }
         }
+        while(it != items.end()) {
+            if (!entered_optionals) {
+                mModule.getErrorHandler().error("Extra Argument is ignored.", e.getLoc());
+            } else {
+                mModule.getErrorHandler().warning("Extra Argument is ignored.", e.getLoc());
+                optionals++;
+            }
+            (*it)->setSig(mModule.getSig(AST::UNDEFINED));
+            it++;
+        }
+        while (arg_it != fnargs->getArgs().end()) {
+            switch(*arg_it) {
+            case '/':
+                entered_optionals = true;
+                break;
+            case 'z':
+            case 'x':
+            case 'X':
+            case 'j':
+                break;
+            default:
+                if (!entered_optionals) {
+                    mModule.getErrorHandler().error("Missing required argument.", e.getLoc());
+                }
+                break;
+            }
+            arg_it++;
+        }
+        e.getArgs()->getItems() = final_items;
         fnargs->setOptionals(optionals);
         if (fnsig) {
             e.setSig(convertOldType(mModule, (*fnsig).getRet()));
