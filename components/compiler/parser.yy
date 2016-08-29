@@ -399,9 +399,13 @@ simple_expr :
 ;
 
 arg_list :
-arg_list simple_expr { $1->push_back(*$2); $$ = $1; }
-| %empty { $$  = new std::vector<shared_expr>(); }
+arg_list simple_expr optional_comma { $1->push_back(*$2); $$ = $1; }
+| optional_comma { $$  = new std::vector<shared_expr>(); }
 ;
+
+optional_comma :
+COMMA
+| %empty;
 
 fn_call :
 ref arg_list %prec LOW {

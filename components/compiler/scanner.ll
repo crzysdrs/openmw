@@ -133,8 +133,7 @@ typedef Compiler::NewParser::token_type token_type;
 "[!@#$%^&|'?`~:^]" { yylloc->step(); }
 
 "," {
-    yylloc->step();
-    //return token::COMMA;
+    return token::COMMA;
 }
 
  /* these are "identifiers" that can contain "-" anywhere in middle and numbers. */

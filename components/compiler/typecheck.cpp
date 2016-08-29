@@ -615,6 +615,7 @@ namespace Compiler {
                      }
                  } else {
                      /* TODO: Decide what to do with extra args that aren't part of a call */
+                     mModule.getErrorHandler().error("Attempted to use arguments on a non-function.", loc);
                      return new_expr;
                  }
                  cur_expr++;
