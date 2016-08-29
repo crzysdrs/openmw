@@ -660,16 +660,19 @@ namespace Compiler {
                     AST::shared_typesig exprsig = (*cur_expr)->getSig();
                     boost::shared_ptr<AST::TypeArgs> argtypesig = boost::dynamic_pointer_cast<AST::TypeArgs>(exprsig);
                     boost::shared_ptr<AST::Expression> e = *cur_expr;
-                    if (argtypesig) {
+                    /* only allow zero arg function for subexpressions */
+                    if (argtypesig && argtypesig->getArgs() == "") {
                         boost::shared_ptr<AST::Expression> fn_e = processFn(cur_expr, end_expr, cur_arg, end_arg, false, optional);
                         if (fn_e) {
                             e = fn_e;
                             acceptArgs(fn_e, NULL);
                         }
                     } else {
+                        ExprTypeCheck noInstr(*this);
+                        noInstr.setIgnoreCalls();
+                        noInstr.acceptArgs(e, NULL);
                         cur_expr++;
                     }
-
                     argCoerce(mModule, *cur_arg, e);
                     exprs.push_back(e);
                 }
