@@ -753,8 +753,10 @@ namespace Compiler {
         for(;
             it != items.end() && arg_it != fnargs->getArgs().end();
             it++, arg_it++) {
-            if (*arg_it == '/') {
-                entered_optionals = true;
+            while (*arg_it == 'j' || *arg_it == '/') {
+                if (*arg_it == '/') {
+                    entered_optionals = true;
+                }
                 arg_it++;
             }
             switch(*arg_it) {
@@ -781,7 +783,6 @@ namespace Compiler {
                 break;
             case 'x':
             case 'X':
-            case 'j':
             case 'z':
                 mModule.getErrorHandler().warning("Extra Argument is ignored.", (*it)->getLoc());
                 (*it)->setSig(mModule.getSig(AST::UNDEFINED));

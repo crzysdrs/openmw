@@ -117,11 +117,25 @@ namespace MWScript
                                 std::vector<Interpreter::Type_Code> code;
                                 output.getCode(code);
                                 mScripts.insert (std::make_pair (name, std::make_pair (code, output.getLocals())));
+
+                                if (errorhandler.countWarnings() > 0) {
+                                    std::cout << script->mScriptText << std::endl;
+                                }
                                 return true;
                             } else {
+                                {
+                                    std::cout << script->mScriptText << std::endl;
+                                    std::istringstream input (script->mScriptText);
+                                    Compiler::NewCompiler compiler(errorhandler, mCompilerContext);
+                                    compiler.setHyperVerbose();
+                                    Compiler::Locals locals;
+                                    Compiler::Output output(locals);
+                                    compiler.compile_stream(input, name, output);
+                                }
                                 std::cout << "Failed on " << name << std::endl;
                                 return false;
                             }
+
 #if 0
                         } catch (...) {
                         std::cout << "Horrific error" << std::endl;

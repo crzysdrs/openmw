@@ -105,12 +105,14 @@ typedef boost::shared_ptr<AST::Statement> shared_stmt;
 %token          GTE
 %token          DOT
 %token          COMMA
+%token          IGNORED
 
 %left LOW
 %left EQ NEQ LTE GTE LT GT
 %left '+' '-'
 %right '*' '/'
 %nonassoc UMINUS
+%nonassoc UPLUS
 %nonassoc DOT ARROW
 %left HIGH
 %left error
@@ -332,6 +334,7 @@ expr '+' expr %prec '+' { $$ = new boost::shared_ptr<AST::BinExpr>(new AST::Math
 expr : paren_expr
 | bin_expr { $$ = new shared_expr(boost::static_pointer_cast<AST::Expression>(*$1)); }
 | '-' expr %prec UMINUS { $$ = new shared_expr(new AST::NegateExpr(driver.tokenLoc(@1), *$2)); }
+| '+' expr %prec UPLUS { $$ = new shared_expr(*$2); } /* unary plus!? */
 | fn_call { $$ = $1; } %prec HIGH
 | singleton {$$ = $1; }
 ;
@@ -393,9 +396,10 @@ WHILE expr eol statement_list ENDWHILE { $$ = new shared_stmt(new AST::WhileStat
 
 
 simple_expr :
- '-' ref %prec '-'  { $$ = new shared_expr(new AST::NegateExpr(driver.tokenLoc(@1), *$2)); }
-| ref
+'-' ref %prec UMINUS  { $$ = new shared_expr(new AST::NegateExpr(driver.tokenLoc(@1), *$2)); }
+| '-' paren_expr %prec UMINUS  { $$ = new shared_expr(new AST::NegateExpr(driver.tokenLoc(@1), *$2)); }
 | paren_expr
+| ref
 ;
 
 arg_list :

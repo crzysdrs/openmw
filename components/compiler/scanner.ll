@@ -60,6 +60,10 @@ typedef Compiler::NewParser::token_type token_type;
 %s KEYWORDS
 %x COMMENT
 
+WHITESPACE [ \t\r]
+IGNORED [!@#$%^&|''?`~:^\\\[\]]
+SKIP ({WHITESPACE}|{IGNORED})
+
 %% /*** Regular Expressions Part ***/
 
  /* code to place at the beginning of yylex() */
@@ -73,10 +77,10 @@ typedef Compiler::NewParser::token_type token_type;
 <KEYWORDS>{
     (?i:if) { BEGIN(INITIAL); return token::IF; }
     (?i:else) { BEGIN(INITIAL); return token::ELSE; }
-    (?i:else[ \t]*if) { BEGIN(INITIAL); return token::ELSEIF; }
-    (?i:end[ \t]*if) { BEGIN(INITIAL); return token::ENDIF; }
+    (?i:else{SKIP}*if) { BEGIN(INITIAL); return token::ELSEIF; }
+    (?i:end{SKIP}*if) { BEGIN(INITIAL); return token::ENDIF; }
     (?i:while) { BEGIN(INITIAL); return token::WHILE; }
-    (?i:end[ \t]*while) {  return token::ENDWHILE; }
+    (?i:end{SKIP}*while) {  return token::ENDWHILE; }
     (?i:set) { BEGIN(INITIAL);  return token::SET; }
     (?i:to) { return token::TO; }
     (?i:return) {return token::RETURN; }
@@ -110,27 +114,24 @@ typedef Compiler::NewParser::token_type token_type;
     }
 }
 
-[ \t\r]+ {
+
+
+{WHITESPACE}+ {
     /* whitespace */
     yylloc->step();
 }
 
-==? { return token::EQ;}
-!==? { return token::NEQ;}
+={SKIP}*=? { return token::EQ;}
+!{SKIP}*=({SKIP}*=)? { return token::NEQ;}
 ">" { return token::GT;}
 "<" { return token::LT;}
-">"==? { return token::GTE;}
-"<"==? { return token::LTE;}
+">"{SKIP}*=({SKIP}*=)? { return token::GTE;}
+"<"[ ]*==? { return token::LTE;}
 
 "." { return token::DOT;}
 "->" { return token::ARROW; }
 
-"]" { return (NewParser::token_type)')'; }
-"[" { return (NewParser::token_type)'('; }
 "-" { return (NewParser::token_type)'-'; }
-
- /* ignored characters */
-"[!@#$%^&|'?`~:^]" { yylloc->step(); }
 
 "," {
     return token::COMMA;
@@ -143,10 +144,15 @@ typedef Compiler::NewParser::token_type token_type;
     return token::IDENT;
 }
 
-\"[^\n"]*\" {
+\"[^\n""]*\" {
     BEGIN(INITIAL);
     yylval->stringVal = new boost::shared_ptr<std::string>(new std::string(yytext + 1, yyleng - 2));
     return token::STRING_LIT;
+}
+
+ /* ignored characters */
+{IGNORED} {
+    yylloc->step();
 }
 
  /* " */

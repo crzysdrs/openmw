@@ -6,7 +6,7 @@
 
 namespace Compiler {
     NewCompiler::NewCompiler(ErrorHandler & errors, Context & context)
-        : mError(errors), mContext(context), mDriver(errors), mExtState(false)
+        : mError(errors), mContext(context), mDriver(errors), mExtState(false), mHyperVerbose(false)
     {
         if (mContext.getExtensions()) {
             mExtState = mContext.getExtensions()->setNewCompiler(true);
@@ -19,14 +19,18 @@ namespace Compiler {
         Compiler::ModuleTypeCheck typecheck(output.getLocals(), mError, mContext);
         Compiler::ModuleCodegen codegen(mContext, output);
 
-        print.visit(mod);
+        if (mHyperVerbose) {
+            print.visit(mod);
+        }
         typecheck.visit(mod);
 
         if (!mError.isGood()) {
             return false;
         }
 
-        print.visit(mod);
+        if (mHyperVerbose) {
+            print.visit(mod);
+        }
         codegen.visit(mod);
 
         return true;
