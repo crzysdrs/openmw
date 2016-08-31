@@ -62,6 +62,8 @@ namespace Compiler {
         NewParser::token_type getKeywordToken(char * text, int len);
 
         void set_keyword_context(bool b);
+    private:
+        std::string * remove_quotes(char * text, int yyleng);
     };
 
 } // namespace example

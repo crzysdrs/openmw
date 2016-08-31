@@ -15,6 +15,11 @@
 typedef boost::shared_ptr<AST::Expression> shared_expr;
 typedef boost::shared_ptr<AST::Statement> shared_stmt;
 
+struct DottedIdent {
+  boost::shared_ptr<std::string> * l;
+  boost::shared_ptr<std::string> * r;
+};
+
 }
 
 /*** yacc/bison Declarations ***/
@@ -66,6 +71,7 @@ typedef boost::shared_ptr<AST::Statement> shared_stmt;
     int  			longVal;
     float 			floatVal;
     std::string * stringLitVal;
+    DottedIdent * dotVal;
     boost::shared_ptr<std::string>*	stringVal;
     boost::shared_ptr<AST::IfStatement>*  ifVal;
     boost::shared_ptr<AST::Module>*  moduleVal;
@@ -124,6 +130,7 @@ typedef boost::shared_ptr<AST::Statement> shared_stmt;
 %token <floatVal> 	FLOAT_LIT	"float"
 %token <stringVal> 	STRING_LIT	"string"
 %token <stringVal> 	IDENT		"ident"
+%token <dotVal> 	DOTTED_IDENT "dotted ident"
 
 
 %type <opVal> bool_oper arrow_dot
@@ -307,10 +314,19 @@ ARROW { $$ = AST::ARROW; }
 ;
 
 ref :
-string_expr %prec LOW { $$ = new shared_expr(new AST::RefExpr(driver.tokenLoc(@1), *$1)) ; }
-| DOT string_expr { std::string empty_str("");
+string_expr %prec LOW { $$ = new shared_expr(new AST::RefExpr(driver.tokenLoc(@1), *$1)); }
+| DOTTED_IDENT {
+  boost::shared_ptr<AST::StringLit> l(new AST::StringLit(driver.tokenLoc(@1),**$1->l));
+  boost::shared_ptr<AST::StringLit> r(new AST::StringLit(driver.tokenLoc(@1),**$1->r));
+  $$ = new shared_expr(new AST::RefExpr(driver.tokenLoc(@1), AST::DOT, l, r));
+}
+/*
+| DOT string_expr {
+  std::string empty_str("");
   boost::shared_ptr<AST::StringLit> empty(new AST::StringLit(driver.tokenLoc(@1),empty_str));
-  $$ = new shared_expr(new AST::RefExpr(driver.tokenLoc(@1), AST::DOT, empty, *$2)) ; }
+  $$ = new shared_expr(new AST::RefExpr(driver.tokenLoc(@1), AST::DOT, empty, *$2)) ;
+}
+*/
 | string_expr arrow_dot string_expr { $$ = new shared_expr(new AST::RefExpr(driver.tokenLoc(@1), $2, *$1, *$3)) ; }
 ;
 
@@ -336,7 +352,7 @@ expr : paren_expr
 | '-' expr %prec UMINUS { $$ = new shared_expr(new AST::NegateExpr(driver.tokenLoc(@1), *$2)); }
 | '+' expr %prec UPLUS { $$ = new shared_expr(*$2); } /* unary plus!? */
 | fn_call { $$ = $1; } %prec HIGH
-| singleton {$$ = $1; }
+| singleton { $$ = $1; }
 ;
 
 else_if : ELSEIF

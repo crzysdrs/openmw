@@ -63,6 +63,7 @@ typedef Compiler::NewParser::token_type token_type;
 WHITESPACE [ \t\r]
 IGNORED [!@#$%^&|''?`~:^\\\[\]]
 SKIP ({WHITESPACE}|{IGNORED})
+IDENT [A-Za-z0-9_]([-A-Za-z0-9_]*[A-Za-z0-9_]|[A-Za-z0-9_])?|\"[^\n\"]+\"
 
 %% /*** Regular Expressions Part ***/
 
@@ -114,8 +115,6 @@ SKIP ({WHITESPACE}|{IGNORED})
     }
 }
 
-
-
 {WHITESPACE}+ {
     /* whitespace */
     yylloc->step();
@@ -133,22 +132,41 @@ SKIP ({WHITESPACE}|{IGNORED})
 
 "-" { return (NewParser::token_type)'-'; }
 
-"," {
-    return token::COMMA;
+"," { return token::COMMA; }
+
+{IDENT}\.{IDENT} {
+    int dot_index = -1;
+    for (int i = 0; i < yyleng; i++) {
+        if (yytext[i] == '.') {
+            dot_index = i;
+        }
+    }
+
+    yylval->dotVal = new DottedIdent();
+    yylval->dotVal->l = new boost::shared_ptr<std::string>(remove_quotes(yytext, dot_index));
+    yylval->dotVal->r = new boost::shared_ptr<std::string>(remove_quotes(yytext + dot_index + 1,  yyleng - 1 - dot_index));
+    return token::DOTTED_IDENT;
+}
+
+\.[0-9]+ {
+    yylval->floatVal = std::atof(std::string(yytext, yyleng).c_str());
+    return token::FLOAT_LIT;
 }
 
  /* these are "identifiers" that can contain "-" anywhere in middle and numbers. */
-[A-Za-z0-9_]([-A-Za-z0-9_]*[A-Za-z0-9_]|[A-Za-z0-9_])? {
+{IDENT} {
     BEGIN(INITIAL);
-    yylval->stringVal = new boost::shared_ptr<std::string>(new std::string(yytext, yyleng));
+    yylval->stringVal = new boost::shared_ptr<std::string>(remove_quotes(yytext, yyleng));
     return token::IDENT;
 }
 
+ /*
 \"[^\n""]*\" {
     BEGIN(INITIAL);
     yylval->stringVal = new boost::shared_ptr<std::string>(new std::string(yytext + 1, yyleng - 2));
     return token::STRING_LIT;
 }
+*/
 
  /* ignored characters */
 {IGNORED} {
@@ -205,7 +223,14 @@ namespace Compiler {
         //printf("Keyword Mode: %i\n", keyword);
         mKeywordContext = keyword;
     }
-
+    std::string * NewScanner::remove_quotes(char * yytext, int yyleng)
+    {
+        if (yytext[0] == yytext[yyleng - 1] && yytext[0] == '"') {
+            return new std::string(yytext + 1, yyleng - 2);
+        } else {
+            return new std::string(yytext, yyleng);
+        }
+    }
 }
 
 /* This implementation of ExampleFlexLexer::yylex() is required to fill the
