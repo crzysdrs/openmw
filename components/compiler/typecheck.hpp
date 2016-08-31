@@ -27,9 +27,13 @@ namespace Compiler
         boost::shared_ptr<AST::CallArgs> processArgs(
             expr_iter & cur_expr, expr_iter & end_expr,
             arg_iter & cur_arg, arg_iter & end_arg, bool & optional);
-        boost::shared_ptr<AST::Expression> processFn(
-            expr_iter & cur_expr, expr_iter & end_expr,
-            arg_iter & cur_arg, arg_iter & end_arg, bool toplevel, int optional);
+        std::pair<boost::shared_ptr<AST::Expression>, int> processFn(
+            boost::shared_ptr<AST::ExprItems> items,
+            int index);
+        std::pair<boost::shared_ptr<AST::CallArgs>, int> processArgs(
+            boost::shared_ptr<AST::TypeArgs> args,
+            boost::shared_ptr<AST::ExprItems> items,
+            int start_index);
         ExprTypeCheck(const ExprTypeCheck & old)
             : mModule(old.mModule), mIgnoreFunctions(old.mIgnoreFunctions), mIgnoreInstructions(old.mIgnoreInstructions), mMutable(old.mMutable) {
         };

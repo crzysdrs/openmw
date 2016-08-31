@@ -138,7 +138,7 @@ struct DottedIdent {
 %type <typeVal> type
 %type <binExprVal> bin_expr
 %type <strExprVal> string_expr
-%type <exprVal> expr singleton fn_call ref simple_expr  paren_expr
+%type <exprVal> expr singleton fn_call ref simple_expr  simple paren_expr
 %type <stmtVal> statement inner_statement  control_flow set_statement while_statement if_statement conditional_statement line_statement inner_line_statement type_decl
 %type <ifVal> elseif_statement elseifs
 %type <stmtList> statement_list inner_statement_list optional_else else_statement branches
@@ -410,12 +410,15 @@ while_statement :
 WHILE expr eol statement_list ENDWHILE { $$ = new shared_stmt(new AST::WhileStatement(driver.tokenLoc(@1), *$2, *$4)); }
 ;
 
+simple:
+ref
+| paren_expr
+| singleton
+;
 
 simple_expr :
-'-' ref %prec UMINUS  { $$ = new shared_expr(new AST::NegateExpr(driver.tokenLoc(@1), *$2)); }
-| '-' paren_expr %prec UMINUS  { $$ = new shared_expr(new AST::NegateExpr(driver.tokenLoc(@1), *$2)); }
-| paren_expr
-| ref
+'-' simple %prec UMINUS  { $$ = new shared_expr(new AST::NegateExpr(driver.tokenLoc(@1), *$2)); }
+| simple;
 ;
 
 arg_list :

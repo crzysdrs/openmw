@@ -542,187 +542,161 @@ namespace Compiler {
         }
     }
 
-     boost::shared_ptr<AST::Expression> ExprTypeCheck::processFn(
-        expr_iter & cur_expr, expr_iter & end_expr,
-        arg_iter & cur_arg, arg_iter & end_arg, bool toplevel, int optional)
+    std::pair<boost::shared_ptr<AST::Expression>, int> ExprTypeCheck::processFn(
+        boost::shared_ptr<AST::ExprItems> items,
+        int index)
      {
          ExprTypeCheck immute_expr(*this);
+         boost::shared_ptr<AST::Expression> cur_expr = items->getItems()[index];
+         int end_index = items->getItems().size();
+         TokenLoc loc = cur_expr->getLoc();
+
          immute_expr.setImmutable();
-         immute_expr.acceptArgs(*cur_expr, NULL);
-         TokenLoc loc = (*cur_expr)->getLoc();
-         AST::shared_typesig exprsig = (*cur_expr)->getSig();
+         immute_expr.acceptArgs(cur_expr, NULL);
+
+         AST::shared_typesig exprsig = cur_expr->getSig();
 
          boost::shared_ptr<AST::TypeArgs> argtypesig = boost::dynamic_pointer_cast<AST::TypeArgs>(exprsig);
          boost::shared_ptr<AST::Expression> new_expr;
-         bool remainder = false;
          if (argtypesig) {
-             expr_iter sub_expr_cur = cur_expr + 1;
-             expr_iter sub_expr_end = end_expr;
              std::string format;
              if (argtypesig->isMessageBox()
-                 && sub_expr_cur != end_expr
-                 && (*sub_expr_cur)->coerceString(format) ) {
+                 && index < end_index - 1
+                 && items->getItems()[index + 1]->coerceString(format) ) {
                  argtypesig->setArgs(formatMessageBox(format));
              }
-             arg_iter sub_arg_cur = argtypesig->getArgs().begin();
-             arg_iter sub_arg_end = argtypesig->getArgs().end();
-             bool optional = false;
-
-             boost::shared_ptr<AST::CallArgs> result = processArgs(sub_expr_cur, sub_expr_end, sub_arg_cur, sub_arg_end, optional);
+             std::pair<boost::shared_ptr<AST::CallArgs>, int> result = processArgs(argtypesig, items, index + 1);
              ExprTypeCheck ignoremethods(*this);
-             if (result) {
-                 new_expr = boost::shared_ptr<AST::Expression>(new AST::CallExpr((*cur_expr)->getLoc(), *cur_expr, result));
-                 if ((sub_arg_cur == sub_arg_end || optional) && (!toplevel || sub_expr_cur == end_expr)) {
-                     cur_expr = sub_expr_cur;
-                     return new_expr;
-                 } else {
-                     /* we have a remainder at the top level */
-                     cur_expr = sub_expr_cur;
-                     remainder = true;
-                 }
+             if (result.first) {
+                 new_expr = boost::shared_ptr<AST::Expression>(new AST::CallExpr(cur_expr->getLoc(), cur_expr, result.first));
+                 acceptArgs(new_expr, NULL);
+                 index = result.second;
              } else {
                  ignoremethods.setIgnoreCalls();
                  /* failed to process, re-evaluate as non-method call */
-                 ignoremethods.acceptArgs(*cur_expr, NULL);
-
-                 loc = (*cur_expr)->getLoc();
-                 exprsig = (*cur_expr)->getSig();
-             }
-         }
-
-         if (cur_expr == end_expr) {
-             return new_expr;
-         }
-         boost::shared_ptr<AST::NegateExpr> isneg = boost::dynamic_pointer_cast<AST::NegateExpr>(*cur_expr);
-         if ((remainder && isneg) || !remainder) {
-             if (!remainder) {
-                 new_expr = *cur_expr;
-                 cur_expr++;
-             }
-
-             if (cur_expr != end_expr) {
-                 boost::shared_ptr<AST::NegateExpr> neg = boost::dynamic_pointer_cast<AST::NegateExpr>(*cur_expr);
-                 loc = (*cur_expr)->getLoc();
-                 if (neg) {
-                     *cur_expr = neg->getExpr();
-                     boost::shared_ptr<AST::Expression> sub_expr = processFn(cur_expr, end_expr, cur_arg, end_arg, false, false);
-                     if (sub_expr) {
-                         boost::shared_ptr<AST::Expression> neg_exp(new AST::NegateExpr(sub_expr->getLoc(), sub_expr));
-                         boost::shared_ptr<AST::Expression> big_e(new AST::MathExpr(loc, AST::MINUS, new_expr, sub_expr));
-                         new_expr = big_e;
-                     } else {
-                         return new_expr;
-                     }
-                 } else {
-                     /* TODO: Decide what to do with extra args that aren't part of a call */
-                     mModule.getErrorHandler().error("Attempted to use arguments on a non-function.", loc);
-                     return new_expr;
-                 }
-                 cur_expr++;
+                 ignoremethods.acceptArgs(cur_expr, NULL);
+                 new_expr = cur_expr;
+                 index++;
              }
          } else {
-             mModule.getErrorHandler().error("Call does not begin with instruction/function.", loc);
+             new_expr = cur_expr;
+             index++;
          }
 
-         return new_expr;
+         while (index < end_index) {
+             cur_expr = items->getItems()[index];
+             boost::shared_ptr<AST::NegateExpr> isneg = boost::dynamic_pointer_cast<AST::NegateExpr>(cur_expr);
+             boost::shared_ptr<AST::CallExpr> call = boost::dynamic_pointer_cast<AST::CallExpr>(new_expr);
+             if (isneg && (new_expr && isNumeric(*new_expr->getSig()))) {
+                 std::vector<boost::shared_ptr<AST::Expression> > newitems(items->getItems().begin() + index, items->getItems().end());
+                 newitems[0] = isneg->getExpr();
+                 AST::ExprItems subitems(items->getLoc(), newitems);
+                 boost::shared_ptr<AST::ExprItems> subitems_ptr = boost::make_shared<AST::ExprItems>(subitems);
+                 std::pair<boost::shared_ptr<AST::Expression>, int> sub_expr = processFn(subitems_ptr, 0);
+                 if (sub_expr.first) {
+                     if (new_expr) {
+                         boost::shared_ptr<AST::Expression> big_e(new AST::MathExpr(loc, AST::MINUS, new_expr, sub_expr.first));
+                         new_expr = big_e;
+                     } else {
+                         boost::shared_ptr<AST::Expression> big_e(new AST::NegateExpr(loc, sub_expr.first));
+                         new_expr = big_e;
+                     }
+                     index += sub_expr.second;
+                     acceptArgs(new_expr, NULL);
+                 } else if (call) {
+                     call->getArgs()->getItems().push_back(cur_expr);
+                     index++;
+                 } else {
+                     mModule.getErrorHandler().error("Call does not begin with instruction/function.", cur_expr->getLoc());
+                     return std::make_pair(new_expr, index);
+                 }
+             } else if (call) {
+                 /* just attach extra args to the call, they will be caught later in typechecker */
+                 call->getArgs()->getItems().push_back(cur_expr);
+                 index++;
+             } else {
+                 mModule.getErrorHandler().error("Non-function call expresison. Possibly invalid arguments.", cur_expr->getLoc());
+                 return std::make_pair(new_expr, index);
+             }
+         }
+         return std::make_pair(new_expr, index);
      }
 
-     boost::shared_ptr<AST::CallArgs> ExprTypeCheck::processArgs(
-        expr_iter & cur_expr, expr_iter & end_expr,
-        arg_iter & cur_arg, arg_iter & end_arg, bool & optional)
+    std::pair<boost::shared_ptr<AST::CallArgs>, int> ExprTypeCheck::processArgs(
+         boost::shared_ptr<AST::TypeArgs> args,
+         boost::shared_ptr<AST::ExprItems> items,
+         int start_index)
+
      {
-        std::vector<boost::shared_ptr<AST::Expression> > exprs;
-        TokenLoc loc;
-        if (cur_expr != end_expr) {
-            loc = (*cur_expr)->getLoc();
-        }
-        if (cur_arg != end_arg
-            && *cur_arg == '/') {
-            optional = true; /* catch this early, in case of zero optional args */
-        }
-        while (cur_arg != end_arg
-               && cur_expr != end_expr) {
-            switch(*cur_arg) {
-            case '/':
-                optional = true;
-                break;
-            case 'c':
-            case 'S':
-                /* no function returns strings, we don't need to do any function analysis. */
-                exprs.push_back(*cur_expr);
-                cur_expr++;
-                break;
-            case 'f':
-            case 'l':
-            case 's':
-                {
-                    acceptArgs(*cur_expr, NULL);
-                    AST::shared_typesig exprsig = (*cur_expr)->getSig();
-                    boost::shared_ptr<AST::TypeArgs> argtypesig = boost::dynamic_pointer_cast<AST::TypeArgs>(exprsig);
-                    boost::shared_ptr<AST::Expression> e = *cur_expr;
-                    /* only allow zero arg function for subexpressions */
-                    if (argtypesig && argtypesig->getArgs() == "") {
-                        boost::shared_ptr<AST::Expression> fn_e = processFn(cur_expr, end_expr, cur_arg, end_arg, false, optional);
-                        if (fn_e) {
-                            e = fn_e;
-                            acceptArgs(fn_e, NULL);
-                        }
-                    } else {
-                        ExprTypeCheck noInstr(*this);
-                        noInstr.setIgnoreCalls();
-                        noInstr.acceptArgs(e, NULL);
-                        cur_expr++;
-                    }
-                    argCoerce(mModule, *cur_arg, e);
-                    exprs.push_back(e);
-                }
-                break;
-            case 'x':
-            case 'X':
-            case 'z':
-                /* ignored args */
-                exprs.push_back(*cur_expr);
-                cur_expr++;
-                break;
-            case 'j':
-                break;
-            }
-            cur_arg++;
-        }
+         std::vector<boost::shared_ptr<AST::Expression> > exprs;
+         int index = start_index;
+         int end_index = items->getItems().size();
 
-        bool junk = true;
-        while (cur_arg != end_arg && junk) {
-            switch(*cur_arg) {
-            case 'x':
-            case 'X':
-            case 'z':
-                /* ignored args (unsupplied) */
-                cur_arg++;
-                break;
-            case '/':
-                optional = true;
-                cur_arg++;
-                break;
-            default:
-                junk = false;
-                break;
-            }
-        }
+         arg_iter cur_arg = args->getArgs().begin();
+         arg_iter end_arg = args->getArgs().end();
 
-        return boost::shared_ptr<AST::CallArgs>(new AST::CallArgs(loc, exprs));
-    }
+         while (index < end_index
+             && cur_arg != end_arg) {
+             boost::shared_ptr<AST::Expression> cur_expr = items->getItems()[index];
+
+             switch(*cur_arg) {
+             case 'j':
+                 cur_arg++;
+                 continue;
+             case '/':
+                 cur_arg++;
+                 continue;
+             case 'c':
+             case 'S':
+                 /* no function returns strings, we don't need to do any function analysis. */
+                 exprs.push_back(cur_expr);
+                 break;
+             case 'f':
+             case 'l':
+             case 's':
+                 {
+                     acceptArgs(cur_expr, NULL);
+                     AST::shared_typesig exprsig = cur_expr->getSig();
+                     boost::shared_ptr<AST::TypeArgs> argtypesig = boost::dynamic_pointer_cast<AST::TypeArgs>(exprsig);
+                     boost::shared_ptr<AST::Expression> e = cur_expr;
+                     /* only allow zero arg function for subexpressions */
+                     if (argtypesig && argtypesig->getArgs() == "") {
+                         std::pair<boost::shared_ptr<AST::CallArgs>, int> proc = processArgs(argtypesig, items, index + 1);
+                         boost::shared_ptr<AST::CallExpr> callexpr(new AST::CallExpr(e->getLoc(), e, proc.first));
+                         e = callexpr;
+                         index = proc.second;
+                         acceptArgs(e, NULL);
+                     } else {
+                         ExprTypeCheck noInstr(*this);
+                         noInstr.setIgnoreCalls();
+                         noInstr.acceptArgs(e, NULL);
+                     }
+                     argCoerce(mModule, *cur_arg, e);
+                     exprs.push_back(e);
+                 }
+                 break;
+             case 'x':
+             case 'X':
+             case 'z':
+                 /* ignored args */
+                 exprs.push_back(cur_expr);
+                 break;
+             }
+             index++;
+             cur_arg++;
+         }
+         return std::make_pair(boost::shared_ptr<AST::CallArgs>(new AST::CallArgs(items->getLoc(), exprs)), index);
+     }
 
 
     ExprReturnType ExprTypeCheck::visit(AST::ExprItems & e, ExprArgType a) {
-        expr_iter cur_expr = e.getItems().begin();
-        expr_iter end_expr = e.getItems().end();
-        arg_iter ignore;
-        boost::shared_ptr<AST::Expression> newe = processFn(cur_expr, end_expr, ignore, ignore, true, false);
-        if (newe) {
-            ExprReturnType r = acceptArgs(newe, NULL);
-            return std::make_pair(newe, r.second);
+        boost::shared_ptr<AST::ExprItems> ptr = boost::make_shared<AST::ExprItems>(e);
+        std::pair<boost::shared_ptr<AST::Expression>, int> newe = processFn(ptr, 0);
+        if (newe.first) {
+            ExprReturnType r = acceptArgs(newe.first, NULL);
+            return std::make_pair(newe.first, r.second);
         } else {
-            mModule.getErrorHandler().error("Unable to parse expression.", (*cur_expr)->getLoc());
+            mModule.getErrorHandler().error("Unable to parse expression.", e.getLoc());
             return std::make_pair(AST::shared_expr(), mModule.getSig(AST::UNDEFINED));
         }
     }
@@ -753,11 +727,14 @@ namespace Compiler {
         for(;
             it != items.end() && arg_it != fnargs->getArgs().end();
             it++, arg_it++) {
-            while (*arg_it == 'j' || *arg_it == '/') {
+            while ((*arg_it == 'j' || *arg_it == '/') && arg_it != fnargs->getArgs().end() ) {
                 if (*arg_it == '/') {
                     entered_optionals = true;
                 }
                 arg_it++;
+            }
+            if (arg_it == fnargs->getArgs().end()) {
+                continue;
             }
             switch(*arg_it) {
             case 'c':
